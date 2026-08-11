@@ -1,0 +1,329 @@
+@import "tailwindcss";
+
+:root,
+[data-theme="dark"] {
+  --void: #060309;
+  --void-deep: #030105;
+  --panel: #0d0812;
+  --panel-line: #24102f;
+  --fog: #ede9f2;
+  --fog-dim: #a79fb8;
+
+  --magenta: #ff2b8f;
+  --magenta-soft: #ff6ec0;
+  --yellow: #f4e04d;
+  --cyan: #3ee9e6;
+  --violet: #7b2fff;
+
+  --scanline-color: 255, 255, 255;
+  --scanline-opacity: 0.035;
+  --scanline-blend: overlay;
+  --grain-opacity: 0.05;
+  --vignette-color: 6, 3, 9;
+}
+
+[data-theme="light"] {
+  --void: #f4f1f8;
+  --void-deep: #ffffff;
+  --panel: #ffffff;
+  --panel-line: #d9cfe4;
+  --fog: #170f20;
+  --fog-dim: #5f5670;
+
+  --magenta: #d1187a;
+  --magenta-soft: #ff6ec0;
+  --yellow: #b8930a;
+  --cyan: #0b9c9c;
+  --violet: #6a1fe0;
+
+  --scanline-color: 20, 10, 30;
+  --scanline-opacity: 0.02;
+  --scanline-blend: multiply;
+  --grain-opacity: 0.03;
+  --vignette-color: 200, 195, 210;
+}
+
+@theme inline {
+  --color-void: var(--void);
+  --color-void-deep: var(--void-deep);
+  --color-panel: var(--panel);
+  --color-panel-line: var(--panel-line);
+  --color-fog: var(--fog);
+  --color-fog-dim: var(--fog-dim);
+
+  --color-magenta: var(--magenta);
+  --color-magenta-soft: var(--magenta-soft);
+  --color-yellow: var(--yellow);
+  --color-cyan: var(--cyan);
+  --color-violet: var(--violet);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+  position: relative;
+}
+
+/* ---------- Utility layers ---------- */
+
+.font-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+.font-mono-fx {
+  font-family: var(--font-mono), monospace;
+}
+
+.text-glow-magenta {
+  text-shadow:
+    0 0 6px rgba(255, 43, 143, 0.85),
+    0 0 22px rgba(255, 43, 143, 0.55),
+    0 0 60px rgba(255, 43, 143, 0.3);
+}
+
+.text-glow-cyan {
+  text-shadow:
+    0 0 6px rgba(62, 233, 230, 0.85),
+    0 0 22px rgba(62, 233, 230, 0.5),
+    0 0 60px rgba(62, 233, 230, 0.28);
+}
+
+.text-glow-yellow {
+  text-shadow:
+    0 0 6px rgba(244, 224, 77, 0.8),
+    0 0 20px rgba(244, 224, 77, 0.45);
+}
+
+.box-glow-magenta {
+  box-shadow:
+    0 0 0 1px rgba(255, 43, 143, 0.5),
+    0 0 24px rgba(255, 43, 143, 0.25);
+}
+
+.box-glow-cyan {
+  box-shadow:
+    0 0 0 1px rgba(62, 233, 230, 0.45),
+    0 0 24px rgba(62, 233, 230, 0.2);
+}
+
+/* Per-faction accent glow — reads --accent custom property set inline via style */
+.text-glow-accent {
+  color: var(--accent);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--accent) 90%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 60px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.border-glow-accent {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.hover-glow-accent {
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+
+.hover-glow-accent:hover {
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 0 30px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.group:hover .group-hover-glow-accent {
+  color: var(--accent);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--accent) 90%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.hover-text-glow-accent:hover {
+  color: var(--accent);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--accent) 90%, transparent),
+    0 0 22px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.bg-glow-accent {
+  background: radial-gradient(
+    ellipse 60% 55% at 50% 35%,
+    color-mix(in srgb, var(--accent) 22%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* Scanlines overlay */
+.scanlines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(var(--scanline-color), var(--scanline-opacity)) 0px,
+    rgba(var(--scanline-color), var(--scanline-opacity)) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: var(--scanline-blend);
+  z-index: 40;
+}
+
+/* Circuit grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(123, 47, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(123, 47, 255, 0.14) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 40%, transparent 90%);
+}
+
+/* Glitch text */
+.glitch {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.glitch::before {
+  color: var(--cyan);
+  animation: glitch-shift-a 5.5s infinite steps(1, end);
+  z-index: -1;
+}
+
+.glitch::after {
+  color: var(--magenta);
+  animation: glitch-shift-b 5.5s infinite steps(1, end);
+  z-index: -1;
+}
+
+/* Pseudo-layers stay fully hidden except for one brief RGB-split burst per cycle */
+@keyframes glitch-shift-a {
+  0%, 91%, 100% { opacity: 0; transform: translate(0, 0); clip-path: inset(0 0 0 0); }
+  92% { opacity: 0.75; transform: translate(-3px, 1px); clip-path: inset(10% 0 60% 0); }
+  93.5% { opacity: 0.75; transform: translate(2px, -1px); clip-path: inset(60% 0 5% 0); }
+  95% { opacity: 0; transform: translate(-2px, 0); clip-path: inset(30% 0 40% 0); }
+}
+
+@keyframes glitch-shift-b {
+  0%, 91%, 100% { opacity: 0; transform: translate(0, 0); clip-path: inset(0 0 0 0); }
+  92% { opacity: 0.75; transform: translate(3px, -1px); clip-path: inset(70% 0 5% 0); }
+  93.5% { opacity: 0.75; transform: translate(-2px, 1px); clip-path: inset(15% 0 55% 0); }
+  95% { opacity: 0; transform: translate(2px, 0); clip-path: inset(45% 0 20% 0); }
+}
+
+/* Blinking cursor / flicker */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 22%, 24%, 55% { opacity: 0.4; }
+}
+
+.flicker {
+  animation: flicker 6s infinite;
+}
+
+/* Slow neon-sign blink — mostly lit at full glow, one quick stutter per cycle */
+@keyframes neon-blink {
+  0%, 88%, 100% {
+    text-shadow:
+      0 0 6px rgba(244, 224, 77, 0.9),
+      0 0 22px rgba(244, 224, 77, 0.6),
+      0 0 60px rgba(244, 224, 77, 0.32);
+  }
+  89.5% {
+    text-shadow: 0 0 2px rgba(244, 224, 77, 0.35);
+  }
+  91% {
+    text-shadow:
+      0 0 6px rgba(244, 224, 77, 0.9),
+      0 0 22px rgba(244, 224, 77, 0.6),
+      0 0 60px rgba(244, 224, 77, 0.32);
+  }
+  92.5% {
+    text-shadow: 0 0 1px rgba(244, 224, 77, 0.25);
+  }
+  94%, 96% {
+    text-shadow:
+      0 0 6px rgba(244, 224, 77, 0.9),
+      0 0 22px rgba(244, 224, 77, 0.6),
+      0 0 60px rgba(244, 224, 77, 0.32);
+  }
+  97% {
+    text-shadow: 0 0 3px rgba(244, 224, 77, 0.5);
+  }
+}
+
+.neon-blink {
+  animation: neon-blink 7s ease-in-out infinite;
+}
+
+/* Marquee scroll */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+::selection {
+  background: var(--magenta);
+  color: var(--void);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--void-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--panel-line);
+  border: 2px solid var(--void-deep);
+}
+
+/* Film grain */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  z-index: 45;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes drift {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(-12px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-drift {
+  animation: drift 14s ease-in-out infinite;
+}
+
+/* Terminal caret */
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.caret {
+  animation: caret-blink 1s step-end infinite;
+}
+
+.text-vignette {
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(var(--vignette-color), 0.55) 0%, transparent 70%);
+}
