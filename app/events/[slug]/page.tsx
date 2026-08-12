@@ -4,6 +4,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
 import { events, totalSlotsForEvent } from "@/lib/data";
+import { getEventRoster } from "@/lib/eventRoster";
+import RoundProgressDisplay from "@/components/RoundProgressDisplay";
 
 const glowText: Record<string, string> = {
   magenta: "text-magenta text-glow-magenta",
@@ -42,6 +44,8 @@ export default async function EventPage({
   const { slug } = await params;
   const event = events.find((e) => e.slug === slug);
   if (!event) notFound();
+
+  const { teams, individuals, roundResults } = await getEventRoster(slug);
 
   return (
     <>
@@ -110,7 +114,16 @@ export default async function EventPage({
             ))}
           </Reveal>
 
-          <Reveal delay={0.35} className="mt-10 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
+          <Reveal delay={0.35}>
+            <RoundProgressDisplay
+              totalRounds={event.rounds}
+              teams={teams}
+              individuals={individuals}
+              roundResults={roundResults}
+            />
+          </Reveal>
+
+          <Reveal delay={0.4} className="mt-10 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
             Full rules, exact timings, and participant rosters go live once
             faction coordinators complete entries.
           </Reveal>

@@ -3,9 +3,11 @@ import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { events } from "@/lib/data";
+import { getEventRoster } from "@/lib/eventRoster";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventResultForm from "@/components/EventResultForm";
+import RoundProgressPanel from "@/components/RoundProgressPanel";
 
 export default async function EventLeadDashboard() {
   const session = await getSession();
@@ -23,6 +25,10 @@ export default async function EventLeadDashboard() {
         .eq("event_slug", session.detail)
         .maybeSingle()
     : { data: null };
+
+  const { teams, individuals, roundResults } = session.detail
+    ? await getEventRoster(session.detail)
+    : { teams: [], individuals: [], roundResults: {} };
 
   return (
     <>
@@ -43,6 +49,20 @@ export default async function EventLeadDashboard() {
           <div className="mt-10">
             <EventResultForm factions={factionRows ?? []} existing={existing} />
           </div>
+
+          {event && (
+            <div className="mt-12">
+              <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
+                // Round Progress
+              </p>
+              <RoundProgressPanel
+                totalRounds={event.rounds}
+                teams={teams}
+                individuals={individuals}
+                roundResults={roundResults}
+              />
+            </div>
+          )}
 
           <form action={logout} className="mt-10">
             <button className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim transition-colors hover:text-magenta">

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
 import { notifyFacultyApprovalNeeded } from "@/lib/notify";
+import { events } from "@/lib/data";
+import type { RoundStatus } from "@/lib/eventRoster";
 
 type ActionResult = { error: string | null };
 
@@ -69,5 +71,87 @@ export async function submitResult(_prev: ActionResult, formData: FormData): Pro
   await notifyFacultyApprovalNeeded(eventSlug);
 
   revalidatePath("/dashboard/event-lead");
+  return { error: null };
+}
+
+/** Round-by-round advancement, entered directly by the event lead — no approval gate, unlike the final faction placement above. unitId is a team id for team-based events, a student id for flat events (The Blacktie Protocol). */
+export async function setRoundStatus(
+  roundNumber: number,
+  unitType: "team" | "student",
+  unitId: string,
+  status: RoundStatus | null
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.role !== "event_lead" || !session.detail) {
+    return { error: "Not authorized." };
+  }
+
+  const event = events.find((e) => e.slug === session.detail);
+  if (!event) return { error: "Unknown event." };
+  if (roundNumber < 1 || roundNumber > event.rounds) return { error: "Invalid round." };
+
+  const supabase = createAdminClient();
+
+  if (unitType === "team") {
+    const { data: team } = await supabase
+      .from("event_teams")
+      .select("id, event_slug")
+      .eq("id", unitId)
+      .maybeSingle();
+    if (!team || team.event_slug !== session.detail) return { error: "Invalid team." };
+  } else {
+    const { data: reg } = await supabase
+      .from("event_registrations")
+      .select("student_id, event_slug")
+      .eq("student_id", unitId)
+      .eq("event_slug", session.detail)
+      .maybeSingle();
+    if (!reg) return { error: "Invalid student." };
+  }
+
+  if (status === null) {
+    const { error } = await supabase
+      .from("event_round_results")
+      .delete()
+      .eq("event_slug", session.detail)
+      .eq("round_number", roundNumber)
+      .eq(unitType === "team" ? "team_id" : "student_id", unitId);
+    if (error) return { error: "Something went wrong. Try again." };
+    revalidatePath("/dashboard/event-lead");
+    revalidatePath(`/events/${session.detail}`);
+    return { error: null };
+  }
+
+  // Not a .upsert() with onConflict: the uniqueness here comes from partial
+  // indexes (event_round_results_team_unique / _student_unique), and Postgres
+  // only matches ON CONFLICT against a partial index when the conflict target
+  // repeats that index's WHERE predicate — plain onConflict column lists
+  // silently fail to resolve against it. Select-then-write sidesteps that.
+  const { data: existingRow } = await supabase
+    .from("event_round_results")
+    .select("id")
+    .eq("event_slug", session.detail)
+    .eq("round_number", roundNumber)
+    .eq(unitType === "team" ? "team_id" : "student_id", unitId)
+    .maybeSingle();
+
+  const payload = {
+    event_slug: session.detail,
+    round_number: roundNumber,
+    team_id: unitType === "team" ? unitId : null,
+    student_id: unitType === "student" ? unitId : null,
+    status,
+    entered_by: session.id,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = existingRow
+    ? await supabase.from("event_round_results").update(payload).eq("id", existingRow.id)
+    : await supabase.from("event_round_results").insert(payload);
+
+  if (error) return { error: "Something went wrong. Try again." };
+
+  revalidatePath("/dashboard/event-lead");
+  revalidatePath(`/events/${session.detail}`);
   return { error: null };
 }
