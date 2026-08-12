@@ -122,7 +122,7 @@ export const events: FestEvent[] = [
     tagline: "Locked in. Puzzles are the only way out.",
     briefing: [
       "Teams are locked into a corp facility's mainframe room after a security breach and must solve a chain of physical and logical puzzles to escape before systems go into full lockdown.",
-      "Each faction fields one 5-member squad by default, with the option to field a second squad using spare slots from their pool.",
+      "Each faction fields up to 6 squads of 3, entered team by team through the portal.",
     ],
     format: [
       "Round 1: Physical puzzle heats, 19 Aug",
@@ -236,7 +236,7 @@ export const events: FestEvent[] = [
     tagline: "Trust no one. Someone in the room is not who they say.",
     briefing: [
       "A live-action social deduction game — an infiltrator is embedded among each faction's own \"Sleeper Cell\" and must complete covert sabotage without being identified.",
-      "Base squad is 3 per faction, but factions may field extra groups from their spare slots for more chances at points. No rounds — one continuous session, campus-wide.",
+      "Each faction fields up to 4 groups of 3, entered team by team through the portal. No rounds — one continuous session, campus-wide.",
     ],
     format: ["Single continuous session, 20 Aug, 2:00 – 4:30 PM — campus-wide, no rounds"],
     glow: "yellow",
