@@ -10,6 +10,21 @@ export type EventCategory =
   | "Among Us"
   | "Info Gathering";
 
+/** A faction's roster for one event, split into fixed-size teams. */
+export interface TeamConfig {
+  teamsPerFaction: number;
+  /** Fixed team size, or a [min, max] range when leads gave a range (e.g. Static Vision). */
+  membersPerTeam: number | [number, number];
+}
+
+/** The Grid only: BGMI and PES run simultaneously with separate rosters, so each gets its own team pool under the same event. */
+export interface SubEvent {
+  key: string;
+  label: string;
+  teamsPerFaction: number;
+  membersPerTeam: number | [number, number];
+}
+
 export interface FestEvent {
   slug: string;
   name: string;
@@ -18,12 +33,35 @@ export interface FestEvent {
   briefing: string[];
   format: string[];
   glow: "magenta" | "cyan" | "yellow";
-  /** Fixed slots each faction gets for this event, per the official rulebook. */
-  participantsPerFaction: number;
-  /** True for events where a faction may field extra squads using spare slots from its 50-slot pool. */
-  allowsExtraSquads: boolean;
+  /**
+   * Team structure for faction-head registration, straight from event leads'
+   * filled-in Operative Briefings. `null` means flat individual registration
+   * with no team grouping (The Blacktie Protocol only — reported as
+   * "1 member/team", i.e. no sub-teams at all). Events with `subEvents` set
+   * (The Grid) ignore this field — each sub-event carries its own config.
+   */
+  teamConfig: TeamConfig | null;
+  /** Only set when teamConfig is null: total individual slots per faction. */
+  flatSlotsPerFaction?: number;
+  /** The Grid only: independent per-game team pools (BGMI, PES). */
+  subEvents?: SubEvent[];
   rounds: number;
   pointsTier: { label: string; points: number | null };
+}
+
+/** Total slots a faction gets for one event — teams × max team size, or the flat cap, or summed across sub-events. */
+export function totalSlotsForEvent(event: FestEvent): number {
+  if (event.subEvents) {
+    return event.subEvents.reduce((sum, se) => {
+      const size = Array.isArray(se.membersPerTeam) ? se.membersPerTeam[1] : se.membersPerTeam;
+      return sum + se.teamsPerFaction * size;
+    }, 0);
+  }
+  if (!event.teamConfig) return event.flatSlotsPerFaction ?? 0;
+  const size = Array.isArray(event.teamConfig.membersPerTeam)
+    ? event.teamConfig.membersPerTeam[1]
+    : event.teamConfig.membersPerTeam;
+  return event.teamConfig.teamsPerFaction * size;
 }
 
 // Fest-wide rule: a student may represent their faction in a maximum of
@@ -53,8 +91,7 @@ export const events: FestEvent[] = [
       "Round 3: On-stage Bet-Debt finale on 24 Aug",
     ],
     glow: "cyan",
-    participantsPerFaction: 3,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 3, membersPerTeam: 2 },
     rounds: 3,
     pointsTier: { label: "Tier 2", points: 75 },
   },
@@ -73,8 +110,8 @@ export const events: FestEvent[] = [
       "Round 3: Final boardroom simulation, Main Stage, 24 Aug",
     ],
     glow: "magenta",
-    participantsPerFaction: 12,
-    allowsExtraSquads: false,
+    teamConfig: null,
+    flatSlotsPerFaction: 4,
     rounds: 3,
     pointsTier: { label: "Tier 1", points: 100 },
   },
@@ -93,8 +130,7 @@ export const events: FestEvent[] = [
       "Round 3: Grand Finale, 22 Aug",
     ],
     glow: "yellow",
-    participantsPerFaction: 5,
-    allowsExtraSquads: true,
+    teamConfig: { teamsPerFaction: 6, membersPerTeam: 3 },
     rounds: 3,
     pointsTier: { label: "Tier 2", points: 75 },
   },
@@ -112,8 +148,7 @@ export const events: FestEvent[] = [
       "Round 2: Blind Coding, 18 Aug — no compiler feedback until final submission",
     ],
     glow: "cyan",
-    participantsPerFaction: 5,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 3, membersPerTeam: 3 },
     rounds: 2,
     pointsTier: { label: "Tier 1", points: 100 },
   },
@@ -131,8 +166,7 @@ export const events: FestEvent[] = [
       "Round 2: Short film, screened during the Closing Ceremony, 24 Aug (70% of score)",
     ],
     glow: "magenta",
-    participantsPerFaction: 4,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 1, membersPerTeam: [5, 10] },
     rounds: 2,
     pointsTier: { label: "Tier 3", points: 50 },
   },
@@ -151,8 +185,7 @@ export const events: FestEvent[] = [
       "Round 3: Live pitch finale, Main Stage, 24 Aug",
     ],
     glow: "yellow",
-    participantsPerFaction: 4,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 2, membersPerTeam: 2 },
     rounds: 3,
     pointsTier: { label: "Tier 2", points: 75 },
   },
@@ -170,8 +203,7 @@ export const events: FestEvent[] = [
       "Round 2: Live application round, 19 Aug",
     ],
     glow: "cyan",
-    participantsPerFaction: 3,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 2, membersPerTeam: 3 },
     rounds: 2,
     pointsTier: { label: "Tier 3", points: 50 },
   },
@@ -189,8 +221,11 @@ export const events: FestEvent[] = [
       "Gaming Block 2, 18 Aug: BGMI Round 2 + PES Games 3 & 4 (concurrent)",
     ],
     glow: "magenta",
-    participantsPerFaction: 5,
-    allowsExtraSquads: false,
+    teamConfig: null,
+    subEvents: [
+      { key: "bgmi", label: "BGMI", teamsPerFaction: 1, membersPerTeam: 5 },
+      { key: "pes", label: "PES", teamsPerFaction: 1, membersPerTeam: 4 },
+    ],
     rounds: 2,
     pointsTier: { label: "Tier 3", points: 50 },
   },
@@ -205,8 +240,7 @@ export const events: FestEvent[] = [
     ],
     format: ["Single continuous session, 20 Aug, 2:00 – 4:30 PM — campus-wide, no rounds"],
     glow: "yellow",
-    participantsPerFaction: 3,
-    allowsExtraSquads: true,
+    teamConfig: { teamsPerFaction: 4, membersPerTeam: 3 },
     rounds: 1,
     pointsTier: { label: "Tier 3", points: 50 },
   },
@@ -225,8 +259,7 @@ export const events: FestEvent[] = [
       "Round 3: Final decryption challenge, 22 Aug",
     ],
     glow: "cyan",
-    participantsPerFaction: 6,
-    allowsExtraSquads: false,
+    teamConfig: { teamsPerFaction: 3, membersPerTeam: 3 },
     rounds: 3,
     pointsTier: { label: "Bonus", points: null },
   },

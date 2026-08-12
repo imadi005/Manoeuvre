@@ -3,7 +3,7 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
-import { events } from "@/lib/data";
+import { events, totalSlotsForEvent } from "@/lib/data";
 
 const glowText: Record<string, string> = {
   magenta: "text-magenta text-glow-magenta",
@@ -16,6 +16,19 @@ const glowBorder: Record<string, string> = {
   cyan: "border-cyan/40",
   yellow: "border-yellow/40",
 };
+
+function sizeLabel(size: number | [number, number]): string {
+  return Array.isArray(size) ? `${size[0]}–${size[1]}` : String(size);
+}
+
+function teamStructureLabel(event: (typeof events)[number]): string {
+  if (event.subEvents) {
+    return event.subEvents.map((se) => `${se.label} ${sizeLabel(se.membersPerTeam)}`).join(" · ");
+  }
+  if (!event.teamConfig) return `${event.flatSlotsPerFaction ?? 0} individual`;
+  const { teamsPerFaction, membersPerTeam } = event.teamConfig;
+  return `${teamsPerFaction} team${teamsPerFaction > 1 ? "s" : ""} of ${sizeLabel(membersPerTeam)}`;
+}
 
 export function generateStaticParams() {
   return events.map((e) => ({ slug: e.slug }));
@@ -81,7 +94,7 @@ export default async function EventPage({
 
           <Reveal delay={0.3} className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
-              { label: "Per Faction", value: `${event.participantsPerFaction}${event.allowsExtraSquads ? "+" : ""}` },
+              { label: "Per Faction", value: `${totalSlotsForEvent(event)} slots (${teamStructureLabel(event)})` },
               { label: "Rounds", value: String(event.rounds) },
               {
                 label: "Points",

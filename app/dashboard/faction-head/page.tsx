@@ -26,13 +26,19 @@ export default async function FactionHeadDashboard() {
 
   const { data: registrationRows } = await supabase
     .from("event_registrations")
-    .select("id, event_slug, student_id, students(name, roll_number)")
+    .select("id, event_slug, student_id, team_id, students(name, roll_number)")
+    .eq("faction_id", session.factionId);
+
+  const { data: teamRows } = await supabase
+    .from("event_teams")
+    .select("id, event_slug, sub_event, name")
     .eq("faction_id", session.factionId);
 
   type RegRow = {
     id: string;
     event_slug: string;
     student_id: string;
+    team_id: string | null;
     students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
   };
 
@@ -58,14 +64,30 @@ export default async function FactionHeadDashboard() {
     string,
     { id: string; studentId: string; name: string; rollNumber: string }[]
   > = {};
+  const membersByTeamId: Record<string, { id: string; studentId: string; name: string; rollNumber: string }[]> = {};
   for (const r of regs) {
     const info = Array.isArray(r.students) ? r.students[0] : r.students;
-    if (!registrationsByEvent[r.event_slug]) registrationsByEvent[r.event_slug] = [];
-    registrationsByEvent[r.event_slug].push({
-      id: r.id,
-      studentId: r.student_id,
-      name: info?.name ?? "—",
-      rollNumber: info?.roll_number ?? "—",
+    const member = { id: r.id, studentId: r.student_id, name: info?.name ?? "—", rollNumber: info?.roll_number ?? "—" };
+    if (r.team_id) {
+      if (!membersByTeamId[r.team_id]) membersByTeamId[r.team_id] = [];
+      membersByTeamId[r.team_id].push(member);
+    } else {
+      if (!registrationsByEvent[r.event_slug]) registrationsByEvent[r.event_slug] = [];
+      registrationsByEvent[r.event_slug].push(member);
+    }
+  }
+
+  const teamsByEvent: Record<
+    string,
+    { id: string; name: string; subEventKey: string; members: { id: string; studentId: string; name: string; rollNumber: string }[] }[]
+  > = {};
+  for (const t of teamRows ?? []) {
+    if (!teamsByEvent[t.event_slug]) teamsByEvent[t.event_slug] = [];
+    teamsByEvent[t.event_slug].push({
+      id: t.id,
+      name: t.name,
+      subEventKey: t.sub_event,
+      members: membersByTeamId[t.id] ?? [],
     });
   }
 
@@ -92,6 +114,7 @@ export default async function FactionHeadDashboard() {
             <RegistrationBoard
               students={students}
               registrationsByEvent={registrationsByEvent}
+              teamsByEvent={teamsByEvent}
               factionTotalUsed={regs.length}
             />
           </div>
