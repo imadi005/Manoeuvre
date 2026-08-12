@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { LoginState } from "@/app/login/actions";
 
 interface Field {
@@ -11,6 +11,50 @@ interface Field {
   autoCapitalize?: string;
   autoComplete?: string;
   required?: boolean;
+}
+
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M1.5 12s4-7 10.5-7 10.5 7 10.5 7-4 7-10.5 7-10.5-7-10.5-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2C11 5.1 11.5 5 12 5c6.5 0 10.5 7 10.5 7a15.6 15.6 0 0 1-3.4 4.2M6.2 6.9A15.9 15.9 0 0 0 1.5 12s4 7 10.5 7c1.4 0 2.7-.3 3.9-.8" />
+      <path d="M9.9 10a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
+
+function FieldInput({ f }: { f: Field }) {
+  const [visible, setVisible] = useState(false);
+  const isPassword = f.type === "password";
+
+  return (
+    <div className="relative">
+      <input
+        name={f.name}
+        type={isPassword && visible ? "text" : (f.type ?? "text")}
+        placeholder={f.placeholder}
+        autoCapitalize={f.autoCapitalize ?? "off"}
+        autoComplete={f.autoComplete ?? (isPassword ? "current-password" : "username")}
+        required={f.required ?? true}
+        className={`w-full border border-panel-line bg-void px-3 py-2.5 font-mono-fx text-sm text-fog outline-none transition-colors focus:border-cyan ${isPassword ? "pr-10" : ""}`}
+      />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-fog-dim transition-colors hover:text-cyan"
+        >
+          <EyeIcon open={visible} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function AuthForm({
@@ -42,15 +86,7 @@ export default function AuthForm({
             <span className="font-mono-fx text-[11px] uppercase tracking-widest text-fog-dim">
               {f.label}
             </span>
-            <input
-              name={f.name}
-              type={f.type ?? "text"}
-              placeholder={f.placeholder}
-              autoCapitalize={f.autoCapitalize ?? "off"}
-              autoComplete={f.autoComplete ?? (f.type === "password" ? "current-password" : "username")}
-              required={f.required ?? true}
-              className="border border-panel-line bg-void px-3 py-2.5 font-mono-fx text-sm text-fog outline-none transition-colors focus:border-cyan"
-            />
+            <FieldInput f={f} />
           </label>
         ))}
 

@@ -1,6 +1,9 @@
 import Image from "next/image";
 import HappeningNowBar from "./HappeningNowBar";
 import ThemeToggle from "./ThemeToggle";
+import { getSession } from "@/lib/auth/session";
+import { DASHBOARD_BY_ROLE } from "@/lib/dashboardPath";
+import { logout } from "@/app/login/actions";
 
 const links = [
   { label: "Events", href: "/#events" },
@@ -9,7 +12,10 @@ const links = [
   { label: "Leaderboard", href: "/leaderboard" },
 ];
 
-export default function Navbar() {
+export default async function Navbar() {
+  const session = await getSession();
+  const dashboardHref = session ? (session.mustReset ? "/verify-otp" : DASHBOARD_BY_ROLE[session.role]) : null;
+
   return (
     <header className="fixed top-0 inset-x-0 z-50">
       <HappeningNowBar />
@@ -29,12 +35,31 @@ export default function Navbar() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <a
-              href="/login"
-              className="border border-magenta/60 px-4 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-magenta transition-colors hover:bg-magenta hover:text-void box-glow-magenta"
-            >
-              Login
-            </a>
+            {session ? (
+              <>
+                <a
+                  href={dashboardHref!}
+                  className="hidden border border-cyan/60 px-4 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void sm:inline-block"
+                >
+                  {session.name.split(" ")[0]}&rsquo;s Terminal
+                </a>
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="border border-magenta/60 px-4 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-magenta transition-colors hover:bg-magenta hover:text-void box-glow-magenta"
+                  >
+                    Log Out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <a
+                href="/login"
+                className="border border-magenta/60 px-4 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-magenta transition-colors hover:bg-magenta hover:text-void box-glow-magenta"
+              >
+                Login
+              </a>
+            )}
           </div>
         </nav>
       </div>

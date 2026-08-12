@@ -1,9 +1,9 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AuthForm from "@/components/AuthForm";
-import { login } from "./actions";
+import { requestPasswordReset } from "./actions";
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   return (
     <>
       <Navbar />
@@ -11,18 +11,16 @@ export default function LoginPage() {
         <div className="grid-bg pointer-events-none absolute inset-0" />
         <div className="relative w-full max-w-sm">
           <AuthForm
-            action={login}
-            title="Grid Access"
-            subtitle="Log in with your username or roll number."
-            submitLabel="Enter the Grid"
-            fields={[
-              { name: "username", label: "Username / Roll Number", placeholder: "24MCA001" },
-              { name: "password", label: "Password", type: "password" },
-            ]}
+            action={requestPasswordReset}
+            title="Forgot Password"
+            subtitle="Enter your username or roll number — we'll send a verification code to your KJIT email so you can set a new password."
+            submitLabel="Send Code"
+            fields={[{ name: "identifier", label: "Username / Roll Number", placeholder: "24MCA001" }]}
           />
           <p className="mt-4 text-center font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
-            <a href="/forgot-password" className="text-cyan transition-colors hover:text-fog">
-              Forgot password?
+            Remember your password?{" "}
+            <a href="/login" className="text-cyan transition-colors hover:text-fog">
+              Log in
             </a>
           </p>
         </div>
