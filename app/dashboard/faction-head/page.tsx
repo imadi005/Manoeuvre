@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFactionRoster } from "@/lib/factionRoster";
+import { events, SLOTS_PER_FACTION, totalSlotsForEvent } from "@/lib/data";
 import { logout } from "@/app/login/actions";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import RegistrationBoard from "@/components/RegistrationBoard";
 
 export default async function FactionHeadDashboard() {
   const session = await getSession();
@@ -18,78 +20,18 @@ export default async function FactionHeadDashboard() {
     .eq("id", session.factionId)
     .maybeSingle();
 
-  const { data: studentRows } = await supabase
-    .from("students")
-    .select("id, name, roll_number")
-    .eq("faction_id", session.factionId)
-    .order("name");
+  const { students, registrationsByEvent, teamsByEvent, totalRegistrations } = await getFactionRoster(
+    session.factionId
+  );
 
-  const { data: registrationRows } = await supabase
-    .from("event_registrations")
-    .select("id, event_slug, student_id, team_id, students(name, roll_number)")
-    .eq("faction_id", session.factionId);
+  const unassignedCount = students.filter((s) => s.eventCount === 0).length;
 
-  const { data: teamRows } = await supabase
-    .from("event_teams")
-    .select("id, event_slug, sub_event, name")
-    .eq("faction_id", session.factionId);
-
-  type RegRow = {
-    id: string;
-    event_slug: string;
-    student_id: string;
-    team_id: string | null;
-    students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
-  };
-
-  const regs = (registrationRows ?? []) as unknown as RegRow[];
-
-  const eventCountByStudent = new Map<string, number>();
-  const eventSlugsByStudent = new Map<string, string[]>();
-  for (const r of regs) {
-    eventCountByStudent.set(r.student_id, (eventCountByStudent.get(r.student_id) ?? 0) + 1);
-    if (!eventSlugsByStudent.has(r.student_id)) eventSlugsByStudent.set(r.student_id, []);
-    eventSlugsByStudent.get(r.student_id)!.push(r.event_slug);
-  }
-
-  const students = (studentRows ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    rollNumber: s.roll_number,
-    eventCount: eventCountByStudent.get(s.id) ?? 0,
-    eventSlugs: eventSlugsByStudent.get(s.id) ?? [],
-  }));
-
-  const registrationsByEvent: Record<
-    string,
-    { id: string; studentId: string; name: string; rollNumber: string }[]
-  > = {};
-  const membersByTeamId: Record<string, { id: string; studentId: string; name: string; rollNumber: string }[]> = {};
-  for (const r of regs) {
-    const info = Array.isArray(r.students) ? r.students[0] : r.students;
-    const member = { id: r.id, studentId: r.student_id, name: info?.name ?? "—", rollNumber: info?.roll_number ?? "—" };
-    if (r.team_id) {
-      if (!membersByTeamId[r.team_id]) membersByTeamId[r.team_id] = [];
-      membersByTeamId[r.team_id].push(member);
-    } else {
-      if (!registrationsByEvent[r.event_slug]) registrationsByEvent[r.event_slug] = [];
-      registrationsByEvent[r.event_slug].push(member);
-    }
-  }
-
-  const teamsByEvent: Record<
-    string,
-    { id: string; name: string; subEventKey: string; members: { id: string; studentId: string; name: string; rollNumber: string }[] }[]
-  > = {};
-  for (const t of teamRows ?? []) {
-    if (!teamsByEvent[t.event_slug]) teamsByEvent[t.event_slug] = [];
-    teamsByEvent[t.event_slug].push({
-      id: t.id,
-      name: t.name,
-      subEventKey: t.sub_event,
-      members: membersByTeamId[t.id] ?? [],
-    });
-  }
+  const eventProgress = events.map((event) => {
+    const filled = event.teamConfig || event.subEvents
+      ? (teamsByEvent[event.slug] ?? []).reduce((sum, t) => sum + t.members.length, 0)
+      : (registrationsByEvent[event.slug] ?? []).length;
+    return { event, filled, total: totalSlotsForEvent(event) };
+  });
 
   return (
     <>
@@ -107,16 +49,58 @@ export default async function FactionHeadDashboard() {
             Faction: {faction?.name ?? "—"} · {students.length} operatives
           </p>
 
+          <div className="mt-8 flex flex-wrap items-center gap-4 border border-panel-line bg-panel/40 p-4">
+            <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
+              Faction slots used: <span className="text-fog">{totalRegistrations}</span> / {SLOTS_PER_FACTION}
+            </p>
+            <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
+              Unassigned students:{" "}
+              <span className={unassignedCount > 0 ? "text-magenta" : "text-fog"}>{unassignedCount}</span>
+            </p>
+          </div>
+
           <div className="mt-10">
             <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-              // Enter Students Into Events
+              // Select an Event to Register Students
             </p>
-            <RegistrationBoard
-              students={students}
-              registrationsByEvent={registrationsByEvent}
-              teamsByEvent={teamsByEvent}
-              factionTotalUsed={regs.length}
-            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {eventProgress.map(({ event, filled, total }) => {
+                const pct = total > 0 ? Math.min(100, Math.round((filled / total) * 100)) : 0;
+                const full = filled >= total && total > 0;
+                return (
+                  <Link
+                    key={event.slug}
+                    href={`/dashboard/faction-head/${event.slug}`}
+                    className="group border border-panel-line bg-panel/50 p-5 transition-colors hover:border-cyan/60 hover:bg-panel"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+                          {event.category}
+                        </p>
+                        <h3 className="font-display text-lg font-bold uppercase text-fog transition-colors group-hover:text-cyan">
+                          {event.name}
+                        </h3>
+                      </div>
+                      <span
+                        className={`whitespace-nowrap font-mono-fx text-xs ${full ? "text-cyan" : "text-fog-dim"}`}
+                      >
+                        {filled} / {total}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-1.5 w-full bg-void">
+                      <div
+                        className={`h-full ${full ? "bg-cyan" : "bg-yellow"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className="mt-3 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim transition-colors group-hover:text-fog">
+                      Manage roster →
+                    </p>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
           <form action={logout} className="mt-10">
