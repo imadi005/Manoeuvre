@@ -18,6 +18,13 @@
 // run 2:00 – 4:30 PM; Saturday (22 Aug) runs 10:00 AM – 4:30 PM; the
 // Finale (24 Aug) runs 10:00 AM – 5:30 PM (Closing Ceremony gets the
 // extra hour).
+//
+// Manual timing swaps requested post-launch (each event keeps its own
+// round number and venue — only the clock slot moves, so the thematic
+// pairs above no longer hold cleanly on these three days):
+//   18 Aug — CyberPitch (R1) <-> The Grid (R2)
+//   22 Aug — CyberPitch (R2) <-> The Trace (R3)
+//   24 Aug — The Blacktie Protocol / "IT Manager" (R3) <-> CyberPitch (R3)
 
 export interface ScheduleBlock {
   time: string;
@@ -60,9 +67,9 @@ export const onGroundWeek: ScheduleDay[] = [
     weekday: "Tuesday",
     window: "2:00 PM – 4:30 PM",
     blocks: [
-      { time: "2:00 – 3:00 PM", title: "Boardroom — Round 1", eventSlugs: ["blacktie-protocol", "cyberpitch"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom A / B", startsAt: "2026-08-18T14:00:00+05:30", endsAt: "2026-08-18T15:00:00+05:30" },
+      { time: "2:00 – 3:00 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "Classroom A / Gaming venue", startsAt: "2026-08-18T14:00:00+05:30", endsAt: "2026-08-18T15:00:00+05:30" },
       { time: "3:00 – 3:05 PM", title: "Break", isBreak: true, startsAt: "2026-08-18T15:00:00+05:30", endsAt: "2026-08-18T15:05:00+05:30" },
-      { time: "3:05 – 4:30 PM", title: "Screens — Round 2", eventSlugs: ["blackout-build", "the-grid"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom C / Gaming venue", startsAt: "2026-08-18T15:05:00+05:30", endsAt: "2026-08-18T16:30:00+05:30" },
+      { time: "3:05 – 4:30 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "Classroom C / Classroom B", startsAt: "2026-08-18T15:05:00+05:30", endsAt: "2026-08-18T16:30:00+05:30" },
     ],
   },
   {
@@ -102,20 +109,20 @@ export const onGroundWeek: ScheduleDay[] = [
     weekday: "Saturday",
     window: "10:00 AM – 4:30 PM",
     blocks: [
-      { time: "10:00 – 12:50 PM", title: "Manhunt — Grand Finale", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Grand Finale", "Round 3"], venue: "Classroom / Basketball Court", startsAt: "2026-08-22T10:00:00+05:30", endsAt: "2026-08-22T12:50:00+05:30" },
+      { time: "10:00 – 12:50 PM", title: "Room Zero Grand Finale & CyberPitch", eventSlugs: ["room-zero", "cyberpitch"], eventRoundLabels: ["Grand Finale", "Round 2"], venue: "Classroom / Classroom B", startsAt: "2026-08-22T10:00:00+05:30", endsAt: "2026-08-22T12:50:00+05:30" },
       { time: "12:50 – 1:30 PM", title: "Lunch Break", isBreak: true, startsAt: "2026-08-22T12:50:00+05:30", endsAt: "2026-08-22T13:30:00+05:30" },
-      { time: "1:30 – 4:30 PM", title: "Boardroom — Round 2", eventSlugs: ["blacktie-protocol", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom A / B", startsAt: "2026-08-22T13:30:00+05:30", endsAt: "2026-08-22T16:30:00+05:30" },
+      { time: "1:30 – 4:30 PM", title: "The Blacktie Protocol & The Trace", eventSlugs: ["blacktie-protocol", "the-trace"], eventRoundLabels: ["Round 2", "Round 3"], venue: "Classroom A / Basketball Court", startsAt: "2026-08-22T13:30:00+05:30", endsAt: "2026-08-22T16:30:00+05:30" },
     ],
   },
 ];
 
 export const finaleSchedule: ScheduleBlock[] = [
-  { time: "10:00 – 11:35 AM", title: "The Blacktie Protocol — Round 3", eventSlug: "blacktie-protocol", venue: "Stage", startsAt: "2026-08-24T10:00:00+05:30", endsAt: "2026-08-24T11:35:00+05:30" },
+  { time: "10:00 – 11:35 AM", title: "CyberPitch — Round 3", eventSlug: "cyberpitch", venue: "Stage", startsAt: "2026-08-24T10:00:00+05:30", endsAt: "2026-08-24T11:35:00+05:30" },
   { time: "11:35 – 11:50 AM", title: "Break", isBreak: true, startsAt: "2026-08-24T11:35:00+05:30", endsAt: "2026-08-24T11:50:00+05:30" },
   { time: "11:50 AM – 1:10 PM", title: "Cortex Vortex — Round 3", eventSlug: "cortex-vortex", venue: "Stage", startsAt: "2026-08-24T11:50:00+05:30", endsAt: "2026-08-24T13:10:00+05:30" },
   { time: "1:10 – 1:55 PM", title: "Lunch Break", isBreak: true, startsAt: "2026-08-24T13:10:00+05:30", endsAt: "2026-08-24T13:55:00+05:30" },
   { time: "1:55 – 2:10 PM", title: "Break", isBreak: true, startsAt: "2026-08-24T13:55:00+05:30", endsAt: "2026-08-24T14:10:00+05:30" },
-  { time: "2:10 – 3:35 PM", title: "CyberPitch — Round 3", eventSlug: "cyberpitch", venue: "Stage", startsAt: "2026-08-24T14:10:00+05:30", endsAt: "2026-08-24T15:35:00+05:30" },
+  { time: "2:10 – 3:35 PM", title: "The Blacktie Protocol — Round 3", eventSlug: "blacktie-protocol", venue: "Stage", startsAt: "2026-08-24T14:10:00+05:30", endsAt: "2026-08-24T15:35:00+05:30" },
   { time: "3:35 – 3:50 PM", title: "Break", isBreak: true, startsAt: "2026-08-24T15:35:00+05:30", endsAt: "2026-08-24T15:50:00+05:30" },
   { time: "3:50 – 5:30 PM", title: "Closing Ceremony", venue: "Stage", isBreak: true, startsAt: "2026-08-24T15:50:00+05:30", endsAt: "2026-08-24T17:30:00+05:30" },
 ];

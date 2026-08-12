@@ -17,6 +17,17 @@ export async function crossCheckResult(resultId: string, approve: boolean, reaso
   if (!session || !isAuthorized(session.role)) return { error: "Not authorized." };
 
   const supabase = createAdminClient();
+
+  const { data: result } = await supabase
+    .from("event_results")
+    .select("id, status")
+    .eq("id", resultId)
+    .maybeSingle();
+
+  if (!result || result.status !== "faculty_approved") {
+    return { error: "This result isn't awaiting cross-check anymore." };
+  }
+
   const { error } = await supabase
     .from("event_results")
     .update({

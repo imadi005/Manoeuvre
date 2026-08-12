@@ -19,14 +19,16 @@ export function deriveKjitEmail(rollNumber: string): string {
  * regardless, so nothing is silently lost while that's being set up —
  * unconfigured sends land as 'skipped_no_config', not as errors.
  */
-export async function sendEmail(to: string, subject: string, text: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendEmail(to: string, subject: string, text: string, html?: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
   if (!apiKey || !from) return { ok: false, error: "skipped_no_config" };
 
   try {
     const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({ from, to, subject, text });
+    const { error } = await resend.emails.send(
+      html ? { from, to, subject, text, html } : { from, to, subject, text }
+    );
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   } catch (e) {
@@ -41,6 +43,7 @@ async function notify({
   type,
   subject,
   message,
+  html,
 }: {
   recipientType: RecipientType;
   recipientId: string;
@@ -48,6 +51,7 @@ async function notify({
   type: string;
   subject: string;
   message: string;
+  html?: string;
 }) {
   const supabase = createAdminClient();
 
@@ -55,7 +59,7 @@ async function notify({
   let error: string | null = null;
 
   if (email) {
-    const result = await sendEmail(email, subject, message);
+    const result = await sendEmail(email, subject, message, html);
     if (result.ok) status = "sent";
     else if (result.error === "skipped_no_config") status = "skipped_no_config";
     else {
@@ -184,6 +188,124 @@ export async function notifyStudentRegistrationConfirmed(studentId: string, even
     type: "registration_confirmed",
     subject,
     message,
+  });
+}
+
+const SITE_URL = "https://kjitmanoeuvre.com";
+
+/** Verified, live WhatsApp group invites per faction — everything faction-side (coordination, calls, updates) happens here. */
+const WHATSAPP_LINK_BY_SLUG: Record<string, string> = {
+  "neo-ronin": "https://chat.whatsapp.com/H2OEc6MWJGED9RoioWhnEz",
+  hyperion: "https://chat.whatsapp.com/HJmhZ5z2xY29Si7mehX3XP",
+  edgerunners: "https://chat.whatsapp.com/E4VRL3glJQjEfhIrfx9yxf",
+  renegades: "https://chat.whatsapp.com/CvrKgs1ZJuJIjTD33vRMya",
+  maelstrom: "https://chat.whatsapp.com/GOFuRP5wOW37SINuqqe7hQ",
+  aetheris: "https://chat.whatsapp.com/HjT6A8bK3CKBFLyMg3F6yy",
+  phoenix: "https://chat.whatsapp.com/IQ0J78h5KZaBk9nQza5CNo",
+  nightwire: "https://chat.whatsapp.com/EYhuoxg4apS9e1vcrdPWx7",
+};
+
+/** Fun, on-brand "welcome to your faction" email — one-off blast, triggered manually via scripts/send-faction-welcome.ts. */
+export async function notifyFactionWelcome(
+  studentId: string,
+  studentName: string,
+  factionName: string,
+  factionLore: string,
+  factionSlug: string,
+  accent: string
+) {
+  const supabase = createAdminClient();
+  const { data: student } = await supabase.from("students").select("id, roll_number").eq("id", studentId).maybeSingle();
+  if (!student) return;
+
+  const firstName = studentName.split(" ")[0];
+  const logoUrl = `${SITE_URL}/factions/${factionSlug}.png`;
+  const whatsappUrl = WHATSAPP_LINK_BY_SLUG[factionSlug];
+  const subject = `Welcome to ${factionName} — MANOEUVRE 2026`;
+
+  const message = `Hey ${firstName},
+
+You're in. ${factionName} just claimed you.
+
+${factionLore}
+
+Eight factions walked into MANOEUVRE 2026. One walks out on top — and from this second, that's on you as much as anyone else wearing the crest.
+
+JOIN THE FACTION WHATSAPP GROUP NOW — ${whatsappUrl}
+Everything happens there: updates, calls, coordination. Don't miss it.
+
+Here's what to do next:
+- Join the WhatsApp group above, right now
+- Log in at ${SITE_URL}
+  User ID: ${student.roll_number}
+  Password: Manoeuvre@26
+  (You'll be asked to verify a code and set your own password on first login.)
+- Check the portal for your event lineup and the full schedule
+- Rep ${factionName} loud — this is the one week nobody remembers "just a participant"
+- Watch the leaderboard. It updates live. So should your energy.
+
+See you on the ground.
+
+— Team MANOEUVRE 2026`;
+
+  // Fest brand palette (from app/globals.css) — magenta/cyan/yellow on void black,
+  // matching the site chrome. `accent` (faction color) is used sparingly, just for
+  // the crest ring and the faction name, so each faction still feels personalized.
+  const MAGENTA = "#ff2b8f";
+  const CYAN = "#3ee9e6";
+  const YELLOW = "#f4e04d";
+  const VOID = "#060309";
+  const PANEL_LINE = "#24102f";
+  const FOG = "#ede9f2";
+  const FOG_DIM = "#a79fb8";
+
+  const html = `<div style="background:${VOID};padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:${VOID};border:1px solid ${MAGENTA}66;border-radius:4px;overflow:hidden;box-shadow:0 0 24px ${MAGENTA}22;">
+    <div style="height:4px;background:linear-gradient(90deg, ${MAGENTA}, ${YELLOW}, ${CYAN});"></div>
+    <div style="padding:28px 24px 20px;text-align:center;border-bottom:1px solid ${PANEL_LINE};">
+      <img src="${logoUrl}" alt="${factionName} crest" width="120" height="116" style="display:block;margin:0 auto 14px;border-radius:8px;border:2px solid ${accent};background:${VOID};" />
+      <p style="margin:0;color:${YELLOW};font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;">// Manoeuvre 2026</p>
+      <h1 style="margin:6px 0 0;color:${FOG};font-size:24px;text-transform:uppercase;letter-spacing:1px;">Welcome to <span style="color:${accent};">${factionName}</span></h1>
+    </div>
+    <div style="padding:24px;color:${FOG};font-size:14px;line-height:1.6;">
+      <p>Hey ${firstName},</p>
+      <p>You're in. <strong style="color:${accent};">${factionName}</strong> just claimed you.</p>
+      <p style="font-style:italic;color:${FOG_DIM};border-left:2px solid ${MAGENTA};padding-left:12px;">${factionLore}</p>
+      <p>Eight factions walked into MANOEUVRE 2026. One walks out on top — and from this second, that's on you as much as anyone else wearing the crest.</p>
+      <div style="background:#0d1a12;border:1px solid #25d36655;border-radius:4px;padding:16px;margin:20px 0;text-align:center;">
+        <p style="margin:0 0 10px;color:#25d366;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">// Join now — everything happens here</p>
+        <a href="${whatsappUrl}" style="display:inline-block;background:#25d366;color:#062012;font-weight:bold;text-decoration:none;padding:10px 20px;border-radius:4px;font-size:14px;">Join ${factionName} on WhatsApp →</a>
+        <p style="margin:10px 0 0;color:${FOG_DIM};font-size:12px;">Updates, calls, coordination — all in the group. Don't miss it.</p>
+      </div>
+      <div style="background:#0d0612;border:1px solid ${CYAN}44;border-radius:4px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 10px;color:${CYAN};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">// Login details</p>
+        <p style="margin:0 0 4px;"><strong>Portal:</strong> <a href="${SITE_URL}" style="color:${CYAN};">${SITE_URL}</a></p>
+        <p style="margin:0 0 4px;"><strong>User ID:</strong> ${student.roll_number}</p>
+        <p style="margin:0;"><strong>Password:</strong> Manoeuvre@26</p>
+        <p style="margin:8px 0 0;color:${FOG_DIM};font-size:12px;">You'll verify a code and set your own password on first login.</p>
+      </div>
+      <p style="margin:0 0 6px;">Here's what to do next:</p>
+      <ul style="margin:0 0 16px;padding-left:20px;">
+        <li>Join the WhatsApp group above, right now</li>
+        <li>Check the portal for your event lineup and the full schedule</li>
+        <li>Rep ${factionName} loud — this is the one week nobody remembers "just a participant"</li>
+        <li>Watch the leaderboard. It updates live. So should your energy.</li>
+      </ul>
+      <p>See you on the ground.</p>
+      <p style="color:${FOG_DIM};">— Team MANOEUVRE 2026</p>
+    </div>
+    <div style="height:4px;background:linear-gradient(90deg, ${CYAN}, ${YELLOW}, ${MAGENTA});"></div>
+  </div>
+</div>`;
+
+  await notify({
+    recipientType: "student",
+    recipientId: student.id,
+    email: student.roll_number ? deriveKjitEmail(student.roll_number) : null,
+    type: "faction_welcome",
+    subject,
+    message,
+    html,
   });
 }
 
