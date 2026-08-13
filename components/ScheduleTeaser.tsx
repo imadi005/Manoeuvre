@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { onGroundWeek, finaleSchedule, type ScheduleBlock } from "@/lib/schedule";
+import { events } from "@/lib/data";
+
+function eventName(slug: string): string {
+  return events.find((e) => e.slug === slug)?.name ?? slug;
+}
 
 interface Tab {
   label: string;
@@ -79,7 +84,21 @@ export default function ScheduleTeaser() {
               <div key={i} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-4">
                 <span className={`w-40 flex-shrink-0 font-mono-fx text-xs ${accentClass}`}>{b.time}</span>
                 <span className={`font-body text-sm ${b.isBreak ? "italic text-fog-dim" : "text-fog"}`}>
-                  {b.eventSlug ? (
+                  {b.eventSlugs ? (
+                    b.eventSlugs.map((slug, j) => (
+                      <span key={slug}>
+                        {j > 0 && " · "}
+                        <Link href={`/events/${slug}`} className="hover:underline">
+                          {eventName(slug)}
+                        </Link>
+                        {b.eventRoundLabels?.[j] && (
+                          <span className="ml-1 font-mono-fx text-[10px] uppercase text-fog-dim">
+                            ({b.eventRoundLabels[j]})
+                          </span>
+                        )}
+                      </span>
+                    ))
+                  ) : b.eventSlug ? (
                     <Link href={`/events/${b.eventSlug}`} className="hover:underline">
                       {b.title}
                     </Link>
