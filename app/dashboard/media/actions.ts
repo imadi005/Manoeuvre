@@ -1,0 +1,90 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSession } from "@/lib/auth/session";
+import { notifyDocumentationReady } from "@/lib/notify";
+
+type ActionResult = { error: string | null };
+
+const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB — geotagged originals can be large
+
+export async function uploadPhoto(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.role !== "media") return { error: "Not authorized." };
+
+  const eventSlug = String(formData.get("eventSlug") ?? "");
+  const photoType = String(formData.get("photoType") ?? "");
+  const file = formData.get("file") as File | null;
+
+  if (!eventSlug) return { error: "Missing event." };
+  if (photoType !== "geotagged" && photoType !== "normal") return { error: "Invalid photo type." };
+  if (!file || file.size === 0) return { error: "Choose a file first." };
+  if (file.size > MAX_FILE_BYTES) return { error: "File too large (max 15MB)." };
+  if (!file.type.startsWith("image/")) return { error: "Only image files are allowed." };
+
+  const supabase = createAdminClient();
+
+  const { data: result } = await supabase
+    .from("event_results")
+    .select("status")
+    .eq("event_slug", eventSlug)
+    .maybeSingle();
+  if (!result || result.status !== "published") {
+    return { error: "This event isn't closed yet." };
+  }
+
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${eventSlug}/${photoType}/${crypto.randomUUID()}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error: uploadError } = await supabase.storage.from("event-photos").upload(path, buffer, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+
+  const { error: insertError } = await supabase.from("event_photos").insert({
+    event_slug: eventSlug,
+    storage_path: path,
+    photo_type: photoType,
+    uploaded_by: session.id,
+  });
+  if (insertError) return { error: "Saved the file but couldn't record it. Contact Ops." };
+
+  revalidatePath("/dashboard/media");
+  return { error: null };
+}
+
+export async function removePhoto(photoId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.role !== "media") return { error: "Not authorized." };
+
+  const supabase = createAdminClient();
+  const { data: photo } = await supabase.from("event_photos").select("storage_path").eq("id", photoId).maybeSingle();
+  if (!photo) return { error: "Photo not found." };
+
+  await supabase.storage.from("event-photos").remove([photo.storage_path]);
+  const { error } = await supabase.from("event_photos").delete().eq("id", photoId);
+  if (error) return { error: "Something went wrong. Try again." };
+
+  revalidatePath("/dashboard/media");
+  return { error: null };
+}
+
+/** Explicit hand-off once media is confident they've uploaded what's needed — not auto-fired on first upload, since photos usually come in batches. */
+export async function notifyDocumentationTeam(eventSlug: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || session.role !== "media") return { error: "Not authorized." };
+
+  const supabase = createAdminClient();
+  const { count } = await supabase
+    .from("event_photos")
+    .select("id", { count: "exact", head: true })
+    .eq("event_slug", eventSlug);
+  if (!count || count === 0) return { error: "Upload at least one photo before notifying documentation." };
+
+  await notifyDocumentationReady(eventSlug);
+  revalidatePath("/dashboard/media");
+  return { error: null };
+}

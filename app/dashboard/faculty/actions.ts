@@ -51,3 +51,40 @@ export async function facultyDecision(resultId: string, approve: boolean, reason
   revalidatePath("/dashboard/coordinator");
   return { error: null };
 }
+
+export async function documentationDecision(reportId: string, approve: boolean, reason?: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session || (session.role !== "faculty" && session.role !== "main_coordinator")) {
+    return { error: "Not authorized." };
+  }
+
+  const supabase = createAdminClient();
+
+  const { data: report } = await supabase.from("event_reports").select("id, event_slug, status").eq("id", reportId).maybeSingle();
+
+  if (!report || report.status !== "submitted") {
+    return { error: "This report isn't awaiting your approval anymore." };
+  }
+
+  if (session.role === "faculty" && session.detail !== report.event_slug) {
+    return { error: "You can only review your own event." };
+  }
+
+  const { error } = await supabase
+    .from("event_reports")
+    .update({
+      status: approve ? "approved" : "rejected",
+      approved_by: session.id,
+      approved_at: new Date().toISOString(),
+      rejection_reason: approve ? null : (reason?.trim() || "Sent back by faculty — no reason given."),
+    })
+    .eq("id", reportId)
+    .eq("status", "submitted");
+
+  if (error) return { error: "Something went wrong. Try again." };
+
+  revalidatePath("/dashboard/faculty");
+  revalidatePath("/dashboard/documentation");
+  revalidatePath("/dashboard/coordinator");
+  return { error: null };
+}

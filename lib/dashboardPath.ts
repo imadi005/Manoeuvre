@@ -8,4 +8,5 @@ export const DASHBOARD_BY_ROLE: Record<Session["role"], string> = {
   control_room: "/dashboard/control-room",
   documentation: "/dashboard/documentation",
   faculty: "/dashboard/faculty",
+  media: "/dashboard/media",
 };

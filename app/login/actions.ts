@@ -98,7 +98,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   if (organizer && organizer.password_hash) {
     if (!(await verifyPassword(password, organizer.password_hash))) return invalid;
-    const role = organizer.role as "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty";
+    const role = organizer.role as "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty" | "media";
     await createSession({
       role,
       id: organizer.id,

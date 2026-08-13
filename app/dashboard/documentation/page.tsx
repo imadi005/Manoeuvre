@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
-import { events } from "@/lib/data";
+import { events, posterFor } from "@/lib/data";
 import { pointsForPlacement } from "@/lib/scoring";
+import { getEventScheduleBlocks } from "@/lib/schedule";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PrintReportButton from "@/components/PrintReportButton";
@@ -23,15 +24,33 @@ export default async function DocumentationDashboard() {
   const { data: factionRows } = await supabase.from("factions").select("id, name");
   const factionNameById = new Map((factionRows ?? []).map((f) => [f.id, f.name]));
 
-  const { data: registrationRows } = await supabase.from("event_registrations").select("event_slug");
+  const { data: registrationRows } = await supabase
+    .from("event_registrations")
+    .select("event_slug, students(name, roll_number)");
+  type RegRow = { event_slug: string; students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null };
+  const regs = (registrationRows ?? []) as unknown as RegRow[];
   const countByEvent = new Map<string, number>();
-  for (const r of registrationRows ?? []) {
+  const participantsByEvent = new Map<string, { name: string; rollNumber: string }[]>();
+  for (const r of regs) {
     countByEvent.set(r.event_slug, (countByEvent.get(r.event_slug) ?? 0) + 1);
+    const info = Array.isArray(r.students) ? r.students[0] : r.students;
+    if (!info) continue;
+    if (!participantsByEvent.has(r.event_slug)) participantsByEvent.set(r.event_slug, []);
+    participantsByEvent.get(r.event_slug)!.push({ name: info.name, rollNumber: info.roll_number });
+  }
+  for (const list of participantsByEvent.values()) list.sort((a, b) => a.name.localeCompare(b.name));
+
+  const { data: photoRows } = await supabase.from("event_photos").select("event_slug, storage_path, photo_type");
+  const photosByEvent = new Map<string, { url: string; photoType: string }[]>();
+  for (const p of photoRows ?? []) {
+    const { data: pub } = supabase.storage.from("event-photos").getPublicUrl(p.storage_path);
+    if (!photosByEvent.has(p.event_slug)) photosByEvent.set(p.event_slug, []);
+    photosByEvent.get(p.event_slug)!.push({ url: pub.publicUrl, photoType: p.photo_type });
   }
 
   const { data: reportRows } = await supabase
     .from("event_reports")
-    .select("event_slug, summary, highlights, issues, updated_at");
+    .select("event_slug, summary, objectives, outcome, feedback, web_url, highlights, issues, status, rejection_reason, updated_at");
   const reportByEvent = new Map((reportRows ?? []).map((r) => [r.event_slug, r]));
 
   const resultByEvent = new Map((resultRows ?? []).map((r) => [r.event_slug, r]));
@@ -58,9 +77,13 @@ export default async function DocumentationDashboard() {
       event: e,
       closed,
       participantCount: countByEvent.get(e.slug) ?? 0,
+      participants: participantsByEvent.get(e.slug) ?? [],
       rounds: e.rounds,
       placements,
       report: reportByEvent.get(e.slug) ?? null,
+      scheduleBlocks: getEventScheduleBlocks(e.slug),
+      posterUrl: posterFor(e.slug),
+      photos: photosByEvent.get(e.slug) ?? [],
     };
   });
 
@@ -139,7 +162,15 @@ export default async function DocumentationDashboard() {
                       <PrintReportButton />
                     </div>
 
-                    <DocumentationReportForm eventSlug={r.event.slug} existing={r.report} />
+                    <DocumentationReportForm
+                      eventSlug={r.event.slug}
+                      eventName={r.event.name}
+                      existing={r.report}
+                      scheduleBlocks={r.scheduleBlocks}
+                      participants={r.participants}
+                      posterUrl={r.posterUrl}
+                      photos={r.photos}
+                    />
                   </>
                 )}
               </div>

@@ -70,7 +70,7 @@ export async function requestPasswordReset(_prev: ActionResult, formData: FormDa
     await supabase.from("organizers").update({ must_reset_password: true }).eq("id", organizer.id);
     const email = organizer.roll_number ? deriveKjitEmail(organizer.roll_number) : organizer.email;
     if (!email) return { error: "No email on file for this account — contact Ops directly." };
-    const role = organizer.role as "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty";
+    const role = organizer.role as "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty" | "media";
     await startReset(
       { role, id: organizer.id, username: organizer.username, name: organizer.name, rollNumber: organizer.roll_number, detail: organizer.detail, mustReset: true },
       "organizer",

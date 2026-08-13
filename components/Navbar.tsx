@@ -39,9 +39,12 @@ export default async function Navbar() {
               <>
                 <a
                   href={dashboardHref!}
-                  className="hidden border border-cyan/60 px-4 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void sm:inline-block"
+                  className="inline-block border border-cyan/60 px-3 py-1.5 font-mono-fx text-xs uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void sm:px-4"
                 >
-                  {session.name.split(" ")[0]}&rsquo;s Terminal
+                  <span className="sm:hidden">Dashboard</span>
+                  <span className="hidden sm:inline">
+                    {session.name.split(" ")[0]}&rsquo;s Dashboard
+                  </span>
                 </a>
                 <form action={logout}>
                   <button

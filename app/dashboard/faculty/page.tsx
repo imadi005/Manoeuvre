@@ -6,7 +6,8 @@ import { events } from "@/lib/data";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ResultVerificationBoard from "@/components/ResultVerificationBoard";
-import { facultyDecision } from "./actions";
+import DocumentationApprovalBoard from "@/components/DocumentationApprovalBoard";
+import { facultyDecision, documentationDecision } from "./actions";
 
 export default async function FacultyDashboard() {
   const session = await getSession();
@@ -44,6 +45,31 @@ export default async function FacultyDashboard() {
     submittedBy: (r.submitted_by ? submitterNameById.get(r.submitted_by) : null) ?? "—",
   }));
 
+  const { data: reportRows } = session.detail
+    ? await supabase
+        .from("event_reports")
+        .select("id, event_slug, summary, objectives, outcome, feedback, web_url, written_by")
+        .eq("event_slug", session.detail)
+        .eq("status", "submitted")
+    : { data: [] };
+
+  const writerIds = [...new Set((reportRows ?? []).map((r) => r.written_by).filter(Boolean))];
+  const { data: writerRows } = writerIds.length
+    ? await supabase.from("organizers").select("id, name").in("id", writerIds)
+    : { data: [] };
+  const writerNameById = new Map((writerRows ?? []).map((o) => [o.id, o.name]));
+
+  const pendingReports = (reportRows ?? []).map((r) => ({
+    id: r.id,
+    eventName: events.find((e) => e.slug === r.event_slug)?.name ?? r.event_slug,
+    summary: r.summary,
+    objectives: r.objectives,
+    outcome: r.outcome,
+    feedback: r.feedback,
+    webUrl: r.web_url,
+    writtenBy: (r.written_by ? writerNameById.get(r.written_by) : null) ?? "—",
+  }));
+
   return (
     <>
       <Navbar />
@@ -71,6 +97,13 @@ export default async function FacultyDashboard() {
               rejectLabel="Send Back"
               askReasonOnReject
             />
+          </div>
+
+          <div className="mt-12">
+            <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
+              // Documentation Awaiting Your Approval
+            </p>
+            <DocumentationApprovalBoard pending={pendingReports} decide={documentationDecision} />
           </div>
 
           <form action={logout} className="mt-10">

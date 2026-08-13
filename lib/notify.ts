@@ -55,10 +55,18 @@ async function notify({
 }) {
   const supabase = createAdminClient();
 
-  let status: "sent" | "failed" | "skipped_no_config" = "skipped_no_config";
+  let status: "sent" | "failed" | "skipped_no_config" | "skipped_disabled" = "skipped_no_config";
   let error: string | null = null;
 
-  if (email) {
+  // Kill switch — every email that isn't the login OTP (a separate code path
+  // in lib/otp.ts, unaffected) routes through here. Off by default; flip
+  // WORKFLOW_EMAILS_ENABLED=true in the environment to turn the rest back on.
+  const workflowEmailsEnabled = process.env.WORKFLOW_EMAILS_ENABLED === "true";
+
+  if (!workflowEmailsEnabled) {
+    status = "skipped_disabled";
+    error = "workflow_emails_disabled";
+  } else if (email) {
     const result = await sendEmail(email, subject, message, html);
     if (result.ok) status = "sent";
     else if (result.error === "skipped_no_config") status = "skipped_no_config";
@@ -148,6 +156,44 @@ export async function notifyDocumentationReady(eventSlug: string) {
         recipientId: d.id,
         email: await organizerEmail(d),
         type: "documentation_ready",
+        subject,
+        message,
+      })
+    )
+  );
+}
+
+/** Control room published — event is closed, media team can now shoot/upload photos. Documentation isn't notified yet; that happens once photos are actually in. */
+export async function notifyMediaPhotosNeeded(eventSlug: string) {
+  const media = await organizersByRoleAndDetail("media", "Media Team");
+  const subject = `MANOEUVRE 2026: ${eventName(eventSlug)} closed — photos needed`;
+  const message = `${eventName(eventSlug)} is closed. Upload geotagged and normal photos in the portal so documentation can start the write-up.`;
+  await Promise.all(
+    media.map(async (m) =>
+      notify({
+        recipientType: "organizer",
+        recipientId: m.id,
+        email: await organizerEmail(m),
+        type: "media_photos_needed",
+        subject,
+        message,
+      })
+    )
+  );
+}
+
+/** Documentation submitted their write-up — faculty in charge needs to approve it before it's visible to coordinators. */
+export async function notifyDocumentationApprovalNeeded(eventSlug: string) {
+  const faculty = await organizersByRoleAndDetail("faculty", eventSlug);
+  const subject = `MANOEUVRE 2026: ${eventName(eventSlug)} write-up needs your approval`;
+  const message = `The documentation team submitted the write-up for ${eventName(eventSlug)}. Please review and approve in the portal.`;
+  await Promise.all(
+    faculty.map(async (f) =>
+      notify({
+        recipientType: "organizer",
+        recipientId: f.id,
+        email: await organizerEmail(f),
+        type: "documentation_approval_needed",
         subject,
         message,
       })

@@ -14,6 +14,7 @@ const TABLE_BY_ROLE: Record<string, string> = {
   control_room: "organizers",
   documentation: "organizers",
   faculty: "organizers",
+  media: "organizers",
 };
 
 const DASHBOARD_BY_ROLE: Record<string, string> = {
@@ -24,6 +25,7 @@ const DASHBOARD_BY_ROLE: Record<string, string> = {
   control_room: "/dashboard/control-room",
   documentation: "/dashboard/documentation",
   faculty: "/dashboard/faculty",
+  media: "/dashboard/media",
 };
 
 export async function resetPassword(_prev: LoginState, formData: FormData): Promise<LoginState> {

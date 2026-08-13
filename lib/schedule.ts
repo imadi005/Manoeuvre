@@ -140,3 +140,18 @@ export function getLiveBlock(now: Date = new Date()): ScheduleBlock | null {
     }) ?? null
   );
 }
+
+/** Every locked schedule block (across all days) that includes this event — a multi-round event has one per round. */
+export function getEventScheduleBlocks(eventSlug: string): { date: string; time: string; venue?: string }[] {
+  const days = onGroundWeek.map((d) => ({ date: d.date, blocks: d.blocks }));
+  days.push({ date: "24 Aug", blocks: finaleSchedule });
+
+  const result: { date: string; time: string; venue?: string }[] = [];
+  for (const day of days) {
+    for (const b of day.blocks) {
+      const matches = b.eventSlug === eventSlug || b.eventSlugs?.includes(eventSlug);
+      if (matches) result.push({ date: day.date, time: b.time, venue: b.venue });
+    }
+  }
+  return result;
+}

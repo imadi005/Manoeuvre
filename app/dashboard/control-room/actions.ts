@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
-import { notifyDocumentationReady } from "@/lib/notify";
+import { notifyMediaPhotosNeeded } from "@/lib/notify";
 
 type ActionResult = { error: string | null };
 
@@ -75,11 +75,11 @@ export async function publishResult(resultId: string): Promise<ActionResult> {
 
   if (error) return { error: "Something went wrong. Try again." };
 
-  await notifyDocumentationReady(result.event_slug);
+  await notifyMediaPhotosNeeded(result.event_slug);
 
   revalidatePath("/dashboard/control-room");
   revalidatePath("/dashboard/coordinator");
-  revalidatePath("/dashboard/documentation");
+  revalidatePath("/dashboard/media");
   revalidatePath("/leaderboard");
   return { error: null };
 }

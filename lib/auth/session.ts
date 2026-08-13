@@ -32,7 +32,7 @@ export type Session =
       otpVerified?: boolean;
     }
   | {
-      role: "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty";
+      role: "main_coordinator" | "event_lead" | "control_room" | "documentation" | "faculty" | "media";
       id: string;
       username: string;
       name: string;

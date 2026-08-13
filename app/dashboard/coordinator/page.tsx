@@ -85,6 +85,18 @@ export default async function CoordinatorDashboard() {
   const awaitingCrossCheck = (allResults ?? []).filter((r) => r.status === "faculty_approved").map(toSummary);
   const awaitingPublish = (allResults ?? []).filter((r) => r.status === "control_verified").map(toSummary);
 
+  const { data: approvedReportRows } = await supabase
+    .from("event_reports")
+    .select("event_slug, summary, approved_at")
+    .eq("status", "approved")
+    .order("approved_at", { ascending: false });
+  const approvedReports = (approvedReportRows ?? []).map((r) => ({
+    eventName: events.find((e) => e.slug === r.event_slug)?.name ?? r.event_slug,
+    slug: r.event_slug,
+    summary: r.summary,
+    approvedAt: r.approved_at,
+  }));
+
   return (
     <>
       <Navbar />
@@ -208,10 +220,31 @@ export default async function CoordinatorDashboard() {
 
           <div className="mt-12">
             <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
+              // Approved Documentation
+            </p>
+            {approvedReports.length === 0 ? (
+              <p className="font-body text-sm text-fog-dim">Nothing approved yet.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {approvedReports.map((r) => (
+                  <div key={r.slug} className="border border-cyan/30 bg-panel/30 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-display text-sm font-bold uppercase text-fog">{r.eventName}</span>
+                      <span className="font-mono-fx text-[10px] uppercase tracking-widest text-cyan">Approved</span>
+                    </div>
+                    {r.summary && <p className="mt-1 line-clamp-2 font-body text-xs text-fog-dim">{r.summary}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-12">
+            <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
               // Organizer Directory
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {["main_coordinator", "event_lead", "faculty", "control_room", "documentation", "committee"].map((role) => (
+              {["main_coordinator", "event_lead", "faculty", "control_room", "documentation", "media", "committee"].map((role) => (
                 <div key={role} className="border border-panel-line bg-panel/30 p-3 text-center">
                   <p className="font-display text-lg text-fog">{orgCountByRole.get(role) ?? 0}</p>
                   <p className="font-mono-fx text-[9px] uppercase tracking-widest text-fog-dim">
