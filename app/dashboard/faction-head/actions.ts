@@ -114,6 +114,13 @@ export async function addRegistration(studentId: string, eventSlug: string, team
   const conflictSlug = findConflict(eventSlug, currentSlugs);
   if (conflictSlug) {
     const conflictName = events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug;
+    await supabase.from("conflict_attempts").insert({
+      student_id: studentId,
+      faction_id: session.factionId,
+      attempted_event_slug: eventSlug,
+      conflicting_event_slug: conflictSlug,
+      attempted_by: session.id,
+    });
     return { error: `Time conflict — already in ${conflictName}, which runs at the same time as ${event.name}.` };
   }
 

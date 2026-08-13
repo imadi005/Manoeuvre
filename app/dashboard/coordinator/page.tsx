@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
@@ -152,6 +153,15 @@ export default async function CoordinatorDashboard() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="mt-10">
+            <Link
+              href="/dashboard/coordinator/registrations"
+              className="inline-block border border-cyan/60 px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void"
+            >
+              // Full Registrations Overview — Every Faction × Every Event × Every Team →
+            </Link>
           </div>
 
           <div className="mt-12">
