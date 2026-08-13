@@ -117,7 +117,7 @@ export default async function RegistrationsOverviewPage() {
                         <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{e.name}</span>
                         <span className={`font-mono-fx text-[10px] uppercase tracking-widest ${full ? "text-cyan" : c.filled > 0 ? "text-yellow" : "text-fog-dim"}`}>
                           {c.filled}/{c.total} filled
-                          {c.teamCount > 0 && ` · ${c.teamCount} team${c.teamCount === 1 ? "" : "s"} started`}
+                          {c.teamCount > 0 && ` · ${c.teamCount} team${c.teamCount === 1 ? "" : "s"}`}
                         </span>
                       </div>
                     );
@@ -162,7 +162,7 @@ export default async function RegistrationsOverviewPage() {
                           className={`border border-panel-line px-2 py-2 text-center ${full ? "bg-cyan/10 text-cyan" : c.filled > 0 ? "text-yellow" : "text-fog-dim"}`}
                         >
                           {c.filled}/{c.total}
-                          {c.teamCount > 0 && <div className="text-[9px] opacity-70">{c.teamCount} team{c.teamCount === 1 ? "" : "s"} started</div>}
+                          {c.teamCount > 0 && <div className="text-[9px] opacity-70">{c.teamCount} team{c.teamCount === 1 ? "" : "s"}</div>}
                         </td>
                       );
                     })}
