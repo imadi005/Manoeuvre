@@ -50,7 +50,13 @@ function BlockContent({ b }: { b: ScheduleBlock }) {
     : isStage
       ? "border-yellow/60 bg-yellow/10 text-yellow"
       : "border-cyan/50 bg-cyan/10 text-cyan";
-  const style = { ...(pos?.style ?? {}), minHeight: isShort ? "16px" : "26px" };
+  // Breaks sit back-to-back with the next block, no slack between them — a
+  // flat 16px minimum bled downward into whatever followed whenever the
+  // break was shorter than ~12 real minutes (e.g. the 18th's 5-min break).
+  // Scale the floor down for very short breaks instead of a fixed minimum.
+  const minHeightPx = b.isBreak ? Math.min(16, Math.max(4, (pos?.durationMin ?? 5) * 1.3)) : isShort ? 16 : 26;
+  const style = { ...(pos?.style ?? {}), minHeight: `${minHeightPx}px` };
+  const veryShortBreak = b.isBreak && (pos?.durationMin ?? 999) < 10;
 
   if (b.eventSlugs) {
     const [slugA, slugB] = b.eventSlugs;
@@ -83,7 +89,7 @@ function BlockContent({ b }: { b: ScheduleBlock }) {
     );
   }
 
-  const inner = (
+  const inner = veryShortBreak ? null : (
     <>
       {!isShort && (
         <p className="font-mono-fx text-[8px] leading-tight opacity-80 sm:text-[9px]">{b.time}</p>
