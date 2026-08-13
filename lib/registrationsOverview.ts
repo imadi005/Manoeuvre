@@ -22,7 +22,7 @@ export interface OverviewFlatReg {
 }
 
 export interface RegistrationsOverview {
-  factions: { id: string; name: string }[];
+  factions: { id: string; name: string; slug: string }[];
   teams: OverviewTeam[];
   flatRegs: OverviewFlatReg[];
   totalRegistrations: number;
@@ -32,7 +32,7 @@ export interface RegistrationsOverview {
 export async function getRegistrationsOverview(): Promise<RegistrationsOverview> {
   const supabase = createAdminClient();
 
-  const { data: factions } = await supabase.from("factions").select("id, name").order("name");
+  const { data: factions } = await supabase.from("factions").select("id, name, slug").order("name");
   const { data: teamRows } = await supabase.from("event_teams").select("id, name, event_slug, faction_id, sub_event");
   const { data: regRows } = await supabase
     .from("event_registrations")

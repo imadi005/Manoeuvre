@@ -103,14 +103,20 @@ export default async function RegistrationsOverviewPage() {
           <div className="mt-10 flex flex-col gap-3 sm:hidden">
             {factions.map((f) => (
               <div key={f.id} className="border border-panel-line bg-panel/40 p-3">
-                <p className="font-display text-sm font-bold uppercase text-fog">{f.name}</p>
+                <Link
+                  href={`/dashboard/coordinator/registrations/faction/${f.slug}`}
+                  className="font-display text-sm font-bold uppercase text-fog underline-offset-2 hover:text-cyan hover:underline"
+                >
+                  {f.name} →
+                </Link>
                 <div className="mt-2 flex flex-col gap-1.5">
                   {events.map((e) => {
                     const c = cell(f.id, e.slug);
                     if (c.filled === 0 && c.teamCount === 0) return null;
                     const full = c.filled >= c.total && c.total > 0;
                     return (
-                      <div
+                      <Link
+                        href={`/dashboard/coordinator/registrations/event/${e.slug}`}
                         key={e.slug}
                         className="flex items-center justify-between border-b border-panel-line/40 pb-1.5 last:border-b-0 last:pb-0"
                       >
@@ -119,7 +125,7 @@ export default async function RegistrationsOverviewPage() {
                           {c.filled}/{c.total} filled
                           {c.teamCount > 0 && ` · ${c.teamCount} team${c.teamCount === 1 ? "" : "s"}`}
                         </span>
-                      </div>
+                      </Link>
                     );
                   })}
                   {events.every((e) => { const c = cell(f.id, e.slug); return c.filled === 0 && c.teamCount === 0; }) && (
@@ -142,7 +148,12 @@ export default async function RegistrationsOverviewPage() {
                       key={e.slug}
                       className="border border-panel-line bg-panel/40 px-2 py-2 text-center uppercase tracking-widest text-fog-dim"
                     >
-                      {e.name}
+                      <Link
+                        href={`/dashboard/coordinator/registrations/event/${e.slug}`}
+                        className="transition-colors hover:text-cyan hover:underline"
+                      >
+                        {e.name}
+                      </Link>
                     </th>
                   ))}
                 </tr>
@@ -151,7 +162,12 @@ export default async function RegistrationsOverviewPage() {
                 {factions.map((f) => (
                   <tr key={f.id}>
                     <td className="sticky left-0 border border-panel-line bg-void px-3 py-2 font-body font-semibold uppercase text-fog">
-                      {f.name}
+                      <Link
+                        href={`/dashboard/coordinator/registrations/faction/${f.slug}`}
+                        className="transition-colors hover:text-cyan hover:underline"
+                      >
+                        {f.name}
+                      </Link>
                     </td>
                     {events.map((e) => {
                       const c = cell(f.id, e.slug);
@@ -159,10 +175,15 @@ export default async function RegistrationsOverviewPage() {
                       return (
                         <td
                           key={e.slug}
-                          className={`border border-panel-line px-2 py-2 text-center ${full ? "bg-cyan/10 text-cyan" : c.filled > 0 ? "text-yellow" : "text-fog-dim"}`}
+                          className={`border border-panel-line px-0 py-0 text-center ${full ? "bg-cyan/10 text-cyan" : c.filled > 0 ? "text-yellow" : "text-fog-dim"}`}
                         >
-                          {c.filled}/{c.total}
-                          {c.teamCount > 0 && <div className="text-[9px] opacity-70">{c.teamCount} team{c.teamCount === 1 ? "" : "s"}</div>}
+                          <Link
+                            href={`/dashboard/coordinator/registrations/faction/${f.slug}`}
+                            className="block px-2 py-2 hover:bg-panel/60"
+                          >
+                            {c.filled}/{c.total}
+                            {c.teamCount > 0 && <div className="text-[9px] opacity-70">{c.teamCount} team{c.teamCount === 1 ? "" : "s"}</div>}
+                          </Link>
                         </td>
                       );
                     })}
@@ -202,13 +223,22 @@ export default async function RegistrationsOverviewPage() {
                       <span className="ml-3 font-mono-fx text-xs font-normal normal-case text-fog-dim">
                         {factionTeams.reduce((s, t) => s + t.members.length, 0) + factionFlat.length} registered across {byEvent.size} event{byEvent.size === 1 ? "" : "s"}
                       </span>
+                      <Link
+                        href={`/dashboard/coordinator/registrations/faction/${f.slug}`}
+                        className="ml-3 font-mono-fx text-[10px] normal-case text-cyan hover:underline"
+                      >
+                        open dedicated page →
+                      </Link>
                     </summary>
                     <div className="border-t border-panel-line px-4 py-4">
                       {[...byEvent.entries()].map(([slug, group]) => (
                         <div key={slug} className="mb-5 last:mb-0">
-                          <p className="mb-2 font-mono-fx text-[11px] uppercase tracking-widest text-cyan">
+                          <Link
+                            href={`/dashboard/coordinator/registrations/event/${slug}`}
+                            className="mb-2 inline-block font-mono-fx text-[11px] uppercase tracking-widest text-cyan hover:underline"
+                          >
                             {events.find((e) => e.slug === slug)?.name ?? slug}
-                          </p>
+                          </Link>
                           {group.teams.map((t) => (
                             <div key={t.id} className="mb-2 border border-panel-line/60 bg-void px-3 py-2">
                               <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{t.name}</p>
