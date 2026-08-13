@@ -72,10 +72,14 @@ function UploadField({ eventSlug, photoType, label }: { eventSlug: string; photo
         type="file"
         name="file"
         accept="image/*"
+        multiple
         required
         disabled={pending}
         className="border border-panel-line bg-void px-2 py-2 font-mono-fx text-xs text-fog file:mr-3 file:border-0 file:bg-cyan file:px-2 file:py-1 file:font-mono-fx file:text-[10px] file:uppercase file:text-void disabled:opacity-40"
       />
+      <span className="font-mono-fx text-[9px] uppercase tracking-widest text-fog-dim">
+        Select multiple at once — ctrl/cmd-click or shift-click in the file picker.
+      </span>
       <button
         type="submit"
         disabled={pending}

@@ -15,13 +15,16 @@ export async function uploadPhoto(_prev: ActionResult, formData: FormData): Prom
 
   const eventSlug = String(formData.get("eventSlug") ?? "");
   const photoType = String(formData.get("photoType") ?? "");
-  const file = formData.get("file") as File | null;
+  const files = formData.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
 
   if (!eventSlug) return { error: "Missing event." };
   if (photoType !== "geotagged" && photoType !== "normal") return { error: "Invalid photo type." };
-  if (!file || file.size === 0) return { error: "Choose a file first." };
-  if (file.size > MAX_FILE_BYTES) return { error: "File too large (max 15MB)." };
-  if (!file.type.startsWith("image/")) return { error: "Only image files are allowed." };
+  if (files.length === 0) return { error: "Choose at least one file first." };
+
+  for (const file of files) {
+    if (file.size > MAX_FILE_BYTES) return { error: `${file.name} is too large (max 15MB).` };
+    if (!file.type.startsWith("image/")) return { error: `${file.name} isn't an image.` };
+  }
 
   const supabase = createAdminClient();
 
@@ -34,25 +37,34 @@ export async function uploadPhoto(_prev: ActionResult, formData: FormData): Prom
     return { error: "This event isn't closed yet." };
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
-  const path = `${eventSlug}/${photoType}/${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const failures: string[] = [];
+  for (const file of files) {
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${eventSlug}/${photoType}/${crypto.randomUUID()}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error: uploadError } = await supabase.storage.from("event-photos").upload(path, buffer, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (uploadError) return { error: `Upload failed: ${uploadError.message}` };
+    const { error: uploadError } = await supabase.storage.from("event-photos").upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (uploadError) {
+      failures.push(file.name);
+      continue;
+    }
 
-  const { error: insertError } = await supabase.from("event_photos").insert({
-    event_slug: eventSlug,
-    storage_path: path,
-    photo_type: photoType,
-    uploaded_by: session.id,
-  });
-  if (insertError) return { error: "Saved the file but couldn't record it. Contact Ops." };
+    const { error: insertError } = await supabase.from("event_photos").insert({
+      event_slug: eventSlug,
+      storage_path: path,
+      photo_type: photoType,
+      uploaded_by: session.id,
+    });
+    if (insertError) failures.push(file.name);
+  }
 
   revalidatePath("/dashboard/media");
+  if (failures.length > 0) {
+    return { error: `${failures.length} of ${files.length} failed to upload: ${failures.join(", ")}` };
+  }
   return { error: null };
 }
 
