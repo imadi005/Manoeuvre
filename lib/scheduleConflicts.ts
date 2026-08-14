@@ -5,6 +5,19 @@ interface TimeRange {
   end: number;
 }
 
+// Hard rule, independent of schedule timing: each pair listed here can't be
+// combined, even if their rounds don't overlap on the calendar. Not a group —
+// cortex-vortex and cyberpitch are each individually barred with
+// blacktie-protocol, but are fine together.
+const MUTUALLY_EXCLUSIVE_GROUPS: string[][] = [
+  ["blacktie-protocol", "cortex-vortex"],
+  ["blacktie-protocol", "cyberpitch"],
+];
+
+function sameExclusiveGroup(eventSlugA: string, eventSlugB: string): boolean {
+  return MUTUALLY_EXCLUSIVE_GROUPS.some((group) => group.includes(eventSlugA) && group.includes(eventSlugB));
+}
+
 function slugsOf(b: ScheduleBlock): string[] {
   if (b.eventSlugs) return b.eventSlugs;
   if (b.eventSlug) return [b.eventSlug];
@@ -37,9 +50,10 @@ function rangesByEvent(): Map<string, TimeRange[]> {
   return map;
 }
 
-/** True if any round of eventA runs at the same time as any round of eventB. */
+/** True if eventA and eventB clash — either their schedules overlap, or they're in the same hard mutual-exclusion group. */
 export function eventsConflict(eventSlugA: string, eventSlugB: string): boolean {
   if (eventSlugA === eventSlugB) return false;
+  if (sameExclusiveGroup(eventSlugA, eventSlugB)) return true;
   const map = rangesByEvent();
   const rangesA = map.get(eventSlugA) ?? [];
   const rangesB = map.get(eventSlugB) ?? [];

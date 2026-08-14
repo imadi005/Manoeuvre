@@ -117,7 +117,7 @@ export async function addRegistration(studentId: string, eventSlug: string, team
       conflicting_event_slug: conflictSlug,
       attempted_by: session.id,
     });
-    return { error: `Time conflict — already in ${conflictName}, which runs at the same time as ${event.name}.` };
+    return { error: `Not allowed — already in ${conflictName}, which can't be combined with ${event.name}.` };
   }
 
   const { count: factionTotal } = await supabase
