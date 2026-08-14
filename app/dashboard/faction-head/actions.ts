@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
-import { events, SLOTS_PER_FACTION } from "@/lib/data";
+import { events } from "@/lib/data";
 import { findConflict } from "@/lib/scheduleConflicts";
 
 type ActionResult = { error: string | null };
@@ -118,14 +118,6 @@ export async function addRegistration(studentId: string, eventSlug: string, team
       attempted_by: session.id,
     });
     return { error: `Not allowed — already in ${conflictName}, which can't be combined with ${event.name}.` };
-  }
-
-  const { count: factionTotal } = await supabase
-    .from("event_registrations")
-    .select("id", { count: "exact", head: true })
-    .eq("faction_id", session.factionId);
-  if ((factionTotal ?? 0) >= SLOTS_PER_FACTION) {
-    return { error: `Your faction has used all ${SLOTS_PER_FACTION} slots.` };
   }
 
   let teamDbId: string | null = null;

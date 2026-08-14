@@ -64,9 +64,6 @@ export function totalSlotsForEvent(event: FestEvent): number {
   return event.teamConfig.teamsPerFaction * size;
 }
 
-// Total registration slots each faction has across all 10 events.
-export const SLOTS_PER_FACTION = 50;
-
 export function posterFor(slug: string): string {
   return `/events/${slug}.png`;
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFactionRoster } from "@/lib/factionRoster";
-import { events, SLOTS_PER_FACTION, totalSlotsForEvent } from "@/lib/data";
+import { events, totalSlotsForEvent } from "@/lib/data";
 import { logout } from "@/app/login/actions";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -51,7 +51,7 @@ export default async function FactionHeadDashboard() {
 
           <div className="mt-8 flex flex-wrap items-center gap-4 border border-panel-line bg-panel/40 p-4">
             <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
-              Faction slots used: <span className="text-fog">{totalRegistrations}</span> / {SLOTS_PER_FACTION}
+              Total registrations: <span className="text-fog">{totalRegistrations}</span>
             </p>
             <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
               Unassigned students:{" "}
