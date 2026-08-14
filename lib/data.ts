@@ -118,7 +118,7 @@ export const events: FestEvent[] = [
     tagline: "Locked in. Puzzles are the only way out.",
     briefing: [
       "Teams are locked into a corp facility's mainframe room after a security breach and must solve a chain of physical and logical puzzles to escape before systems go into full lockdown.",
-      "Each faction fields up to 6 squads of 3, entered team by team through the portal.",
+      "Each faction fields up to 8 squads of 3, entered team by team through the portal.",
     ],
     format: [
       "Round 1: Physical puzzle heats, 19 Aug",
@@ -126,7 +126,7 @@ export const events: FestEvent[] = [
       "Round 3: Grand Finale, 22 Aug",
     ],
     glow: "yellow",
-    teamConfig: { teamsPerFaction: 6, membersPerTeam: 3 },
+    teamConfig: { teamsPerFaction: 8, membersPerTeam: 3 },
     rounds: 3,
     pointsTier: { label: "Tier 2", points: 75 },
   },
@@ -250,12 +250,12 @@ export const events: FestEvent[] = [
       "Bonus-tier event — its exact point value stays hidden until the closing ceremony.",
     ],
     format: [
-      "Round 1: Cipher prelim, 19 Aug (32 teams)",
+      "Round 1: Cipher prelim, 19 Aug (up to 40 teams)",
       "Round 2: Campus signal hunt, 21 Aug",
       "Round 3: Final decryption challenge, 22 Aug",
     ],
     glow: "cyan",
-    teamConfig: { teamsPerFaction: 3, membersPerTeam: 3 },
+    teamConfig: { teamsPerFaction: 5, membersPerTeam: 3 },
     rounds: 3,
     pointsTier: { label: "Bonus", points: null },
   },
