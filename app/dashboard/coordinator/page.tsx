@@ -8,9 +8,8 @@ import { computeFactionTotals } from "@/lib/scoring";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ResultVerificationBoard from "@/components/ResultVerificationBoard";
-import PublishBoard from "@/components/PublishBoard";
 import { facultyDecision } from "@/app/dashboard/faculty/actions";
-import { crossCheckResult, publishResult } from "@/app/dashboard/control-room/actions";
+import { publishResult } from "@/app/dashboard/control-room/actions";
 
 export default async function CoordinatorDashboard() {
   const session = await getSession();
@@ -83,8 +82,10 @@ export default async function CoordinatorDashboard() {
   });
 
   const awaitingFaculty = (allResults ?? []).filter((r) => r.status === "submitted").map(toSummary);
-  const awaitingCrossCheck = (allResults ?? []).filter((r) => r.status === "faculty_approved").map(toSummary);
-  const awaitingPublish = (allResults ?? []).filter((r) => r.status === "control_verified").map(toSummary);
+  const awaitingPublish = (allResults ?? [])
+    .filter((r) => r.status === "faculty_approved")
+    .map(toSummary)
+    .map((r) => ({ ...r, submittedBy: r.facultyApprovedBy }));
 
   const { data: approvedReportRows } = await supabase
     .from("event_reports")
@@ -209,23 +210,16 @@ export default async function CoordinatorDashboard() {
 
           <div className="mt-12">
             <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-              // Override — Awaiting Cross-Check
+              // Override — Awaiting Publish
             </p>
             <ResultVerificationBoard
-              pending={awaitingCrossCheck}
-              decide={crossCheckResult}
-              approveLabel="Verified"
-              rejectLabel="Discrepancy Found"
-              submittedByLabel="Event lead"
+              pending={awaitingPublish}
+              decide={publishResult}
+              approveLabel="Publish to Leaderboard & Close Event"
+              rejectLabel="Send Back"
+              submittedByLabel="Faculty-approved by"
               askReasonOnReject
             />
-          </div>
-
-          <div className="mt-12">
-            <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-              // Override — Ready to Publish
-            </p>
-            <PublishBoard ready={awaitingPublish} publish={publishResult} />
           </div>
 
           <div className="mt-12">

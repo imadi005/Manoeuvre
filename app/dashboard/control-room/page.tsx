@@ -6,8 +6,7 @@ import { events } from "@/lib/data";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ResultVerificationBoard from "@/components/ResultVerificationBoard";
-import PublishBoard from "@/components/PublishBoard";
-import { crossCheckResult, publishResult } from "./actions";
+import { publishResult } from "./actions";
 
 export default async function ControlRoomDashboard() {
   const session = await getSession();
@@ -21,7 +20,7 @@ export default async function ControlRoomDashboard() {
     .select(
       "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id, notes, submitted_by, faculty_approved_by"
     )
-    .in("status", ["faculty_approved", "control_verified"]);
+    .eq("status", "faculty_approved");
 
   const { data: factionRows } = await supabase.from("factions").select("id, name");
   const factionNameById = new Map((factionRows ?? []).map((f) => [f.id, f.name]));
@@ -46,8 +45,9 @@ export default async function ControlRoomDashboard() {
     facultyApprovedBy: (r.faculty_approved_by ? orgNameById.get(r.faculty_approved_by) : null) ?? "—",
   });
 
-  const crossCheckQueue = (resultRows ?? []).filter((r) => r.status === "faculty_approved").map(toSummary);
-  const publishQueue = (resultRows ?? []).filter((r) => r.status === "control_verified").map(toSummary);
+  const publishQueue = (resultRows ?? [])
+    .map(toSummary)
+    .map((r) => ({ ...r, submittedBy: r.facultyApprovedBy }));
 
   return (
     <>
@@ -62,28 +62,21 @@ export default async function ControlRoomDashboard() {
             Welcome, {session.name}
           </h1>
           <p className="mt-3 font-mono-fx text-sm uppercase tracking-widest text-fog-dim">
-            Result cross-check & publishing
+            Awaiting publish — one click sends it live on the leaderboard
           </p>
 
           <div className="mt-10">
             <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-              // Step 1 — Cross-Check Faculty-Approved Results
+              // Awaiting Publish
             </p>
             <ResultVerificationBoard
-              pending={crossCheckQueue}
-              decide={crossCheckResult}
-              approveLabel="Verified — Matches Event Details"
-              rejectLabel="Discrepancy Found"
-              submittedByLabel="Event lead"
+              pending={publishQueue}
+              decide={publishResult}
+              approveLabel="Publish to Leaderboard & Close Event"
+              rejectLabel="Send Back"
+              submittedByLabel="Faculty-approved by"
               askReasonOnReject
             />
-          </div>
-
-          <div className="mt-12">
-            <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-              // Step 2 — Publish
-            </p>
-            <PublishBoard ready={publishQueue} publish={publishResult} />
           </div>
 
           <form action={logout} className="mt-10">
