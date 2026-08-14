@@ -15,7 +15,7 @@
 // Every day fills its full window using genuinely longer rounds, not
 // padding — a break only ever sits between two different activities
 // (never at the start/end of a day, never doubled around lunch). Weekdays
-// run 2:00 – 4:30 PM; Saturday (22 Aug) runs 10:00 AM – 4:30 PM; the
+// run 2:40 – 5:10 PM; Saturday (22 Aug) runs 10:00 AM – 4:30 PM; the
 // Finale (24 Aug) runs 10:00 AM – 5:30 PM (Closing Ceremony gets the
 // extra hour).
 //
@@ -25,6 +25,11 @@
 //   18 Aug — CyberPitch (R1) <-> The Grid (R2)
 //   22 Aug — CyberPitch (R2) <-> The Trace (R3)
 //   24 Aug — The Blacktie Protocol / "IT Manager" (R3) <-> CyberPitch (R3)
+//
+// Fest-wide +40min push: every weekday block that used to start at 2:00 PM
+// now starts at 2:40 PM, end times pushed the same 40 minutes — durations
+// and break lengths are unchanged, the whole afternoon just starts later.
+// Saturday and the Finale (both already starting at 10:00 AM) are untouched.
 
 export interface ScheduleBlock {
   time: string;
@@ -54,53 +59,53 @@ export const onGroundWeek: ScheduleDay[] = [
     dayLabel: "Day 1",
     date: "17 Aug",
     weekday: "Monday",
-    window: "2:00 PM – 4:30 PM",
+    window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:00 – 2:50 PM", title: "Mind Games — Round 1", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom A / B", startsAt: "2026-08-17T14:00:00+05:30", endsAt: "2026-08-17T14:50:00+05:30" },
-      { time: "2:50 – 3:00 PM", title: "Break", isBreak: true, startsAt: "2026-08-17T14:50:00+05:30", endsAt: "2026-08-17T15:00:00+05:30" },
-      { time: "3:00 – 4:30 PM", title: "Screens — Round 1", eventSlugs: ["blackout-build", "the-grid"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom C / Gaming venue", startsAt: "2026-08-17T15:00:00+05:30", endsAt: "2026-08-17T16:30:00+05:30" },
+      { time: "2:40 – 3:30 PM", title: "Mind Games — Round 1", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom A / B", startsAt: "2026-08-17T14:40:00+05:30", endsAt: "2026-08-17T15:30:00+05:30" },
+      { time: "3:30 – 3:40 PM", title: "Break", isBreak: true, startsAt: "2026-08-17T15:30:00+05:30", endsAt: "2026-08-17T15:40:00+05:30" },
+      { time: "3:40 – 5:10 PM", title: "Screens — Round 1", eventSlugs: ["blackout-build", "the-grid"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom C / Gaming venue", startsAt: "2026-08-17T15:40:00+05:30", endsAt: "2026-08-17T17:10:00+05:30" },
     ],
   },
   {
     dayLabel: "Day 2",
     date: "18 Aug",
     weekday: "Tuesday",
-    window: "2:00 PM – 4:30 PM",
+    window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:00 – 3:00 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "Classroom A / Gaming venue", startsAt: "2026-08-18T14:00:00+05:30", endsAt: "2026-08-18T15:00:00+05:30" },
-      { time: "3:00 – 3:05 PM", title: "Break", isBreak: true, startsAt: "2026-08-18T15:00:00+05:30", endsAt: "2026-08-18T15:05:00+05:30" },
-      { time: "3:05 – 4:30 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "Classroom C / Classroom B", startsAt: "2026-08-18T15:05:00+05:30", endsAt: "2026-08-18T16:30:00+05:30" },
+      { time: "2:40 – 3:40 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "Classroom A / Gaming venue", startsAt: "2026-08-18T14:40:00+05:30", endsAt: "2026-08-18T15:40:00+05:30" },
+      { time: "3:40 – 3:45 PM", title: "Break", isBreak: true, startsAt: "2026-08-18T15:40:00+05:30", endsAt: "2026-08-18T15:45:00+05:30" },
+      { time: "3:45 – 5:10 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "Classroom C / Classroom B", startsAt: "2026-08-18T15:45:00+05:30", endsAt: "2026-08-18T17:10:00+05:30" },
     ],
   },
   {
     dayLabel: "Day 3",
     date: "19 Aug",
     weekday: "Wednesday",
-    window: "2:00 PM – 4:30 PM",
+    window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:00 – 3:00 PM", title: "Mind Games — Round 2", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom A / B", startsAt: "2026-08-19T14:00:00+05:30", endsAt: "2026-08-19T15:00:00+05:30" },
-      { time: "3:00 – 3:20 PM", title: "Break", isBreak: true, startsAt: "2026-08-19T15:00:00+05:30", endsAt: "2026-08-19T15:20:00+05:30" },
-      { time: "3:20 – 4:30 PM", title: "Manhunt — Round 1", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom / Basketball Court", startsAt: "2026-08-19T15:20:00+05:30", endsAt: "2026-08-19T16:30:00+05:30" },
+      { time: "2:40 – 3:40 PM", title: "Mind Games — Round 2", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom A / B", startsAt: "2026-08-19T14:40:00+05:30", endsAt: "2026-08-19T15:40:00+05:30" },
+      { time: "3:40 – 4:00 PM", title: "Break", isBreak: true, startsAt: "2026-08-19T15:40:00+05:30", endsAt: "2026-08-19T16:00:00+05:30" },
+      { time: "4:00 – 5:10 PM", title: "Manhunt — Round 1", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom / Basketball Court", startsAt: "2026-08-19T16:00:00+05:30", endsAt: "2026-08-19T17:10:00+05:30" },
     ],
   },
   {
     dayLabel: "Day 4",
     date: "20 Aug",
     weekday: "Thursday",
-    window: "2:00 PM – 4:30 PM",
+    window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:00 – 4:30 PM", title: "Sleeper Cell", eventSlug: "sleeper-cell", venue: "Campus-wide", startsAt: "2026-08-20T14:00:00+05:30", endsAt: "2026-08-20T16:30:00+05:30" },
+      { time: "2:40 – 5:10 PM", title: "Sleeper Cell", eventSlug: "sleeper-cell", venue: "Campus-wide", startsAt: "2026-08-20T14:40:00+05:30", endsAt: "2026-08-20T17:10:00+05:30" },
     ],
   },
   {
     dayLabel: "Day 5",
     date: "21 Aug",
     weekday: "Friday",
-    window: "2:00 PM – 4:30 PM",
+    window: "2:40 PM – 5:10 PM",
     blocks: [
       // One long paired activity, no filler breaks — a proper staggered-heat
       // narrowing round genuinely fills an afternoon on its own.
-      { time: "2:00 – 4:30 PM", title: "Manhunt — Round 2", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom / Basketball Court", startsAt: "2026-08-21T14:00:00+05:30", endsAt: "2026-08-21T16:30:00+05:30" },
+      { time: "2:40 – 5:10 PM", title: "Manhunt — Round 2", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom / Basketball Court", startsAt: "2026-08-21T14:40:00+05:30", endsAt: "2026-08-21T17:10:00+05:30" },
     ],
   },
   {

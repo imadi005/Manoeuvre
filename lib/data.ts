@@ -231,7 +231,7 @@ export const events: FestEvent[] = [
       "A live-action social deduction game — an infiltrator is embedded among each faction's own \"Sleeper Cell\" and must complete covert sabotage without being identified.",
       "Each faction fields up to 4 groups of 3, entered team by team through the portal. No rounds — one continuous session, campus-wide.",
     ],
-    format: ["Single continuous session, 20 Aug, 2:00 – 4:30 PM — campus-wide, no rounds"],
+    format: ["Single continuous session, 20 Aug, 2:40 – 5:10 PM — campus-wide, no rounds"],
     glow: "yellow",
     teamConfig: { teamsPerFaction: 4, membersPerTeam: 3 },
     rounds: 1,
