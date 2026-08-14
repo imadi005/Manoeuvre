@@ -94,7 +94,12 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     .eq("roll_number", rollNumberInput)
     .not("username", "is", null)
     .limit(1);
-  const organizer = orgByUsername ?? orgByRollRows?.[0] ?? null;
+  const { data: orgByEmail } = await supabase
+    .from("organizers")
+    .select(orgSelect)
+    .eq("email", usernameInput)
+    .maybeSingle();
+  const organizer = orgByUsername ?? orgByRollRows?.[0] ?? orgByEmail ?? null;
 
   if (organizer && organizer.password_hash) {
     if (!(await verifyPassword(password, organizer.password_hash))) return invalid;
