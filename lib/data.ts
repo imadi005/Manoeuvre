@@ -64,10 +64,6 @@ export function totalSlotsForEvent(event: FestEvent): number {
   return event.teamConfig.teamsPerFaction * size;
 }
 
-// Fest-wide rule: a student may represent their faction in a maximum of
-// this many events, to force rotation across the whole faction.
-export const MAX_EVENTS_PER_STUDENT = 3;
-
 // Total registration slots each faction has across all 10 events.
 export const SLOTS_PER_FACTION = 50;
 

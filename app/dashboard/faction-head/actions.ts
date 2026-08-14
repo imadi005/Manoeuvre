@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
-import { events, MAX_EVENTS_PER_STUDENT, SLOTS_PER_FACTION } from "@/lib/data";
+import { events, SLOTS_PER_FACTION } from "@/lib/data";
 import { findConflict } from "@/lib/scheduleConflicts";
 
 type ActionResult = { error: string | null };
@@ -104,10 +104,6 @@ export async function addRegistration(studentId: string, eventSlug: string, team
     .select("event_slug")
     .eq("student_id", studentId);
   const currentSlugs = (studentRegs ?? []).map((r) => r.event_slug);
-
-  if (currentSlugs.length >= MAX_EVENTS_PER_STUDENT) {
-    return { error: `This student is already in ${MAX_EVENTS_PER_STUDENT} events (the max).` };
-  }
 
   if (currentSlugs.includes(eventSlug)) return { error: "Already registered for this event." };
 

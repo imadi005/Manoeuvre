@@ -12,12 +12,10 @@ interface Candidate {
 
 export default function StudentSearchPicker({
   candidates,
-  maxEvents,
   onPick,
   disabled,
 }: {
   candidates: Candidate[];
-  maxEvents: number;
   onPick: (studentId: string) => void;
   disabled: boolean;
 }) {
@@ -56,7 +54,7 @@ export default function StudentSearchPicker({
               {c.name} <span className="font-mono-fx text-xs text-fog-dim">· {c.rollNumber}</span>
             </span>
             <span className={`whitespace-nowrap font-mono-fx text-[10px] uppercase tracking-widest ${c.conflictName ? "text-magenta" : "text-fog-dim"}`}>
-              {c.conflictName ? `Clashes: ${c.conflictName}` : `${c.eventCount}/${maxEvents} events`}
+              {c.conflictName ? `Clashes: ${c.conflictName}` : `${c.eventCount} event${c.eventCount === 1 ? "" : "s"} so far`}
             </span>
           </button>
         ))}

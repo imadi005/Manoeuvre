@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { events, MAX_EVENTS_PER_STUDENT, type FestEvent } from "@/lib/data";
+import { events, type FestEvent } from "@/lib/data";
 import { addRegistration, removeRegistration, createTeam } from "@/app/dashboard/faction-head/actions";
 import { findConflict } from "@/lib/scheduleConflicts";
 import StudentSearchPicker from "@/components/StudentSearchPicker";
@@ -218,7 +218,7 @@ function StudentPickerFor({
   disabled: boolean;
 }) {
   const candidates = students
-    .filter((s) => !excludeIds.has(s.id) && s.eventCount < MAX_EVENTS_PER_STUDENT)
+    .filter((s) => !excludeIds.has(s.id))
     .map((s) => {
       const conflictSlug = findConflict(eventSlug, s.eventSlugs);
       const conflictName = conflictSlug ? (events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug) : null;
@@ -228,7 +228,6 @@ function StudentPickerFor({
   return (
     <StudentSearchPicker
       candidates={candidates}
-      maxEvents={MAX_EVENTS_PER_STUDENT}
       onPick={(studentId) => onAdd(studentId, teamId)}
       disabled={disabled}
     />
@@ -255,7 +254,7 @@ function FlatRoster({
   const atCap = registrations.length >= (event.flatSlotsPerFaction ?? 0);
 
   const candidates = students
-    .filter((s) => !registeredIds.has(s.id) && s.eventCount < MAX_EVENTS_PER_STUDENT)
+    .filter((s) => !registeredIds.has(s.id))
     .map((s) => {
       const conflictSlug = findConflict(event.slug, s.eventSlugs);
       const conflictName = conflictSlug ? (events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug) : null;
@@ -292,7 +291,6 @@ function FlatRoster({
         <div className="mt-4">
           <StudentSearchPicker
             candidates={candidates}
-            maxEvents={MAX_EVENTS_PER_STUDENT}
             onPick={(studentId) => onAdd(studentId)}
             disabled={disabled}
           />
