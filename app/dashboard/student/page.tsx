@@ -62,7 +62,7 @@ export default async function StudentDashboard() {
 
           <div className="mt-8 border border-panel-line bg-panel/50 p-6">
             <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
-              // Your Events ({myEvents.length}/3)
+              // Your Events ({myEvents.length})
             </p>
 
             {myEvents.length === 0 ? (
