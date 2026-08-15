@@ -49,6 +49,15 @@ export default async function EventPage({
   const { teams, individuals, roundResults } = await getEventRoster(slug);
   const scheduleBlocks = getEventScheduleBlocks(slug);
 
+  // Group into per-faction blocks for the public roster — empty teams (started, nobody added yet) are hidden.
+  const nonEmptyTeams = teams.filter((t) => t.members.length > 0);
+  const factionNames = [...new Set([...nonEmptyTeams.map((t) => t.factionName), ...individuals.map((i) => i.factionName)])].sort();
+  const rosterByFaction = factionNames.map((factionName) => ({
+    factionName,
+    teams: nonEmptyTeams.filter((t) => t.factionName === factionName),
+    individuals: individuals.filter((i) => i.factionName === factionName),
+  }));
+
   return (
     <>
       <Navbar />
@@ -144,6 +153,36 @@ export default async function EventPage({
             ))}
           </Reveal>
 
+          {rosterByFaction.length > 0 && (
+            <Reveal delay={0.33} className={`mt-8 border ${glowBorder[event.glow]} bg-panel/50 p-6`}>
+              <p className="font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
+                // Registered
+              </p>
+              <div className="mt-4 flex flex-col gap-4">
+                {rosterByFaction.map((f) => (
+                  <div key={f.factionName} className="border border-panel-line/60 bg-void px-4 py-3">
+                    <p className="font-display text-sm font-bold uppercase tracking-wide text-fog">{f.factionName}</p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      {f.teams.map((t) => (
+                        <div key={t.id}>
+                          <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{t.name}</p>
+                          <p className="font-body text-xs text-fog">
+                            {t.members.map((m) => `${m.name} (${m.rollNumber})`).join(", ")}
+                          </p>
+                        </div>
+                      ))}
+                      {f.individuals.length > 0 && (
+                        <p className="font-body text-xs text-fog">
+                          {f.individuals.map((i) => `${i.name} (${i.rollNumber})`).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          )}
+
           <Reveal delay={0.35}>
             <RoundProgressDisplay
               totalRounds={event.rounds}
@@ -153,10 +192,12 @@ export default async function EventPage({
             />
           </Reveal>
 
-          <Reveal delay={0.4} className="mt-10 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
-            Full rules, exact timings, and participant rosters go live once
-            faction coordinators complete entries.
-          </Reveal>
+          {rosterByFaction.length === 0 && (
+            <Reveal delay={0.4} className="mt-10 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
+              Full rules, exact timings, and participant rosters go live once
+              faction coordinators complete entries.
+            </Reveal>
+          )}
         </div>
       </main>
       <Footer />
