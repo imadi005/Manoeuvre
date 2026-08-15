@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
 import { events, totalSlotsForEvent } from "@/lib/data";
+import { getEventScheduleBlocks } from "@/lib/schedule";
 import { getEventRoster } from "@/lib/eventRoster";
 import RoundProgressDisplay from "@/components/RoundProgressDisplay";
 
@@ -46,6 +47,7 @@ export default async function EventPage({
   if (!event) notFound();
 
   const { teams, individuals, roundResults } = await getEventRoster(slug);
+  const scheduleBlocks = getEventScheduleBlocks(slug);
 
   return (
     <>
@@ -95,6 +97,34 @@ export default async function EventPage({
               ))}
             </ul>
           </Reveal>
+
+          {scheduleBlocks.length > 0 && (
+            <Reveal delay={0.25} className={`mt-8 border ${glowBorder[event.glow]} bg-panel/50 p-6`}>
+              <p className="font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
+                // Locked Schedule
+              </p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[420px] border-collapse font-mono-fx text-xs">
+                  <thead>
+                    <tr>
+                      <th className="border-b border-panel-line py-2 text-left uppercase tracking-widest text-fog-dim">Date</th>
+                      <th className="border-b border-panel-line py-2 text-left uppercase tracking-widest text-fog-dim">Time</th>
+                      <th className="border-b border-panel-line py-2 text-left uppercase tracking-widest text-fog-dim">Venue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleBlocks.map((b, i) => (
+                      <tr key={i}>
+                        <td className="border-b border-panel-line/40 py-2 text-fog">{b.date}</td>
+                        <td className="border-b border-panel-line/40 py-2 text-fog">{b.time}</td>
+                        <td className={`border-b border-panel-line/40 py-2 ${glowText[event.glow]}`}>{b.venue ?? "TBD"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Reveal>
+          )}
 
           <Reveal delay={0.3} className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[

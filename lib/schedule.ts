@@ -155,7 +155,7 @@ export function getEventScheduleBlocks(eventSlug: string): { date: string; time:
   for (const day of days) {
     for (const b of day.blocks) {
       const matches = b.eventSlug === eventSlug || b.eventSlugs?.includes(eventSlug);
-      if (matches) result.push({ date: day.date, time: b.time, venue: b.venue });
+      if (matches) result.push({ date: day.date, time: b.time, venue: venueForEvent(eventSlug, b) });
     }
   }
   return result;

@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { events, factions } from "@/lib/data";
+import { firstRoundBlock } from "@/lib/schedule";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -72,24 +73,32 @@ export default async function StudentDashboard() {
               </p>
             ) : (
               <div className="mt-4 flex flex-col gap-2">
-                {myEvents.map((e) => (
-                  <Link
-                    key={e.slug}
-                    href={`/events/${e.slug}`}
-                    className="flex items-center justify-between gap-3 border border-panel-line bg-void px-4 py-3 transition-colors hover:border-cyan"
-                  >
-                    <div>
-                      <p className="font-display text-sm uppercase text-fog">{e.name}</p>
-                      <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
-                        {e.category}
-                      </p>
-                    </div>
-                    <span className="font-mono-fx text-xs text-fog-dim">
-                      {e.pointsTier.label}
-                      {e.pointsTier.points !== null ? ` — ${e.pointsTier.points}` : ""}
-                    </span>
-                  </Link>
-                ))}
+                {myEvents.map((e) => {
+                  const block = firstRoundBlock(e.slug);
+                  return (
+                    <Link
+                      key={e.slug}
+                      href={`/events/${e.slug}`}
+                      className="flex items-center justify-between gap-3 border border-panel-line bg-void px-4 py-3 transition-colors hover:border-cyan"
+                    >
+                      <div>
+                        <p className="font-display text-sm uppercase text-fog">{e.name}</p>
+                        <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+                          {e.category}
+                        </p>
+                        {block && (
+                          <p className="mt-1 font-mono-fx text-[10px] uppercase tracking-widest text-cyan">
+                            {block.date} · {block.time} · {block.venue}
+                          </p>
+                        )}
+                      </div>
+                      <span className="font-mono-fx text-xs text-fog-dim">
+                        {e.pointsTier.label}
+                        {e.pointsTier.points !== null ? ` — ${e.pointsTier.points}` : ""}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
