@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
 import { events } from "@/lib/data";
 import { findConflict } from "@/lib/scheduleConflicts";
+import { isRegistrationLocked } from "@/lib/eventLock";
 
 type ActionResult = { error: string | null };
 type CreateTeamResult = { error: string | null; teamId?: string };
@@ -39,6 +40,10 @@ export async function createTeam(eventSlug: string, subEventKey?: string): Promi
     teamsPerFaction = event.teamConfig.teamsPerFaction;
   } else {
     return { error: "This event doesn't use teams." };
+  }
+
+  if (isRegistrationLocked(eventSlug)) {
+    return { error: `Registration for ${event.name} closed 24h before it started — no further changes allowed. Contact Ops for emergencies.` };
   }
 
   const supabase = createAdminClient();
@@ -87,6 +92,10 @@ export async function addRegistration(studentId: string, eventSlug: string, team
 
   const usesTeams = !!event.teamConfig || !!event.subEvents;
   if (usesTeams && !teamId) return { error: "Select or start a team first." };
+
+  if (isRegistrationLocked(eventSlug)) {
+    return { error: `Registration for ${event.name} closed 24h before it started — no further changes allowed. Contact Ops for emergencies.` };
+  }
 
   const supabase = createAdminClient();
 
@@ -176,6 +185,20 @@ export async function removeRegistration(registrationId: string): Promise<Action
   if (!session || session.role !== "faction_head") return { error: "Not authorized." };
 
   const supabase = createAdminClient();
+
+  const { data: reg } = await supabase
+    .from("event_registrations")
+    .select("event_slug")
+    .eq("id", registrationId)
+    .eq("faction_id", session.factionId)
+    .maybeSingle();
+  if (!reg) return { error: "Registration not found." };
+
+  if (isRegistrationLocked(reg.event_slug)) {
+    const event = events.find((e) => e.slug === reg.event_slug);
+    return { error: `Registration for ${event?.name ?? reg.event_slug} closed 24h before it started — no further changes allowed. Contact Ops for emergencies.` };
+  }
+
   const { error } = await supabase
     .from("event_registrations")
     .delete()

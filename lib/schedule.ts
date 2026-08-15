@@ -61,9 +61,9 @@ export const onGroundWeek: ScheduleDay[] = [
     weekday: "Monday",
     window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:40 – 3:30 PM", title: "Mind Games — Round 1", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom A / B", startsAt: "2026-08-17T14:40:00+05:30", endsAt: "2026-08-17T15:30:00+05:30" },
+      { time: "2:40 – 3:30 PM", title: "Mind Games — Round 1", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 1", "Round 1"], venue: "406 / B2", startsAt: "2026-08-17T14:40:00+05:30", endsAt: "2026-08-17T15:30:00+05:30" },
       { time: "3:30 – 3:40 PM", title: "Break", isBreak: true, startsAt: "2026-08-17T15:30:00+05:30", endsAt: "2026-08-17T15:40:00+05:30" },
-      { time: "3:40 – 5:10 PM", title: "Screens — Round 1", eventSlugs: ["blackout-build", "the-grid"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom C / Gaming venue", startsAt: "2026-08-17T15:40:00+05:30", endsAt: "2026-08-17T17:10:00+05:30" },
+      { time: "3:40 – 5:10 PM", title: "Screens — Round 1", eventSlugs: ["blackout-build", "the-grid"], eventRoundLabels: ["Round 1", "Round 1"], venue: "B3 / 406", startsAt: "2026-08-17T15:40:00+05:30", endsAt: "2026-08-17T17:10:00+05:30" },
     ],
   },
   {
@@ -159,4 +159,41 @@ export function getEventScheduleBlocks(eventSlug: string): { date: string; time:
     }
   }
   return result;
+}
+
+/** The venue string is a single combined field on paired blocks (e.g. "406 / B2", matching eventSlugs order) — pick out this one event's half. */
+export function venueForEvent(eventSlug: string, block: { eventSlug?: string; eventSlugs?: [string, string]; venue?: string }): string {
+  if (!block.venue) return "TBD";
+  if (!block.eventSlugs) return block.venue;
+  const parts = block.venue.split(" / ");
+  const i = block.eventSlugs.indexOf(eventSlug);
+  return parts[i] ?? block.venue;
+}
+
+/** Earliest startsAt across every round of this event — the "start time" registration locks 24h ahead of. */
+export function firstRoundStartsAt(eventSlug: string): Date | null {
+  const all = [...onGroundWeek.flatMap((d) => d.blocks), ...finaleSchedule];
+  const matches = all.filter((b) => (b.eventSlug === eventSlug || b.eventSlugs?.includes(eventSlug)) && b.startsAt);
+  if (matches.length === 0) return null;
+  const times = matches.map((b) => new Date(b.startsAt!).getTime());
+  return new Date(Math.min(...times));
+}
+
+/** The first-round block itself (date label + time + venue) — used for lock-notification emails. */
+export function firstRoundBlock(eventSlug: string): { date: string; time: string; venue: string } | null {
+  const days = onGroundWeek.map((d) => ({ date: d.date, blocks: d.blocks }));
+  days.push({ date: "24 Aug", blocks: finaleSchedule });
+
+  let best: { date: string; time: string; venue: string; startsAt: number } | null = null;
+  for (const day of days) {
+    for (const b of day.blocks) {
+      const matches = (b.eventSlug === eventSlug || b.eventSlugs?.includes(eventSlug)) && b.startsAt;
+      if (!matches) continue;
+      const startsAt = new Date(b.startsAt!).getTime();
+      if (!best || startsAt < best.startsAt) {
+        best = { date: day.date, time: b.time, venue: venueForEvent(eventSlug, b), startsAt };
+      }
+    }
+  }
+  return best ? { date: best.date, time: best.time, venue: best.venue } : null;
 }

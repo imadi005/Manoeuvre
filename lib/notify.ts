@@ -1,7 +1,8 @@
 import "server-only";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { events } from "@/lib/data";
+import { events, posterFor } from "@/lib/data";
+import { firstRoundBlock } from "@/lib/schedule";
 
 type RecipientType = "student" | "organizer";
 
@@ -353,6 +354,185 @@ See you on the ground.
     message,
     html,
   });
+}
+
+interface LockedRegistration {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  factionId: string;
+  factionName: string;
+  teamName: string | null;
+}
+
+/** Registration for this event just locked (24h before its first round) — confirms every registered student, and tells each faction head exactly who they registered. */
+export async function notifyEventLocked(eventSlug: string) {
+  const event = events.find((e) => e.slug === eventSlug);
+  if (!event) return;
+
+  const block = firstRoundBlock(eventSlug);
+  const dateLabel = block?.date ?? "TBD";
+  const timeLabel = block?.time ?? "TBD";
+  const venueLabel = block?.venue ?? "TBD";
+  const posterUrl = `${SITE_URL}${posterFor(eventSlug)}`;
+
+  const supabase = createAdminClient();
+
+  const { data: regRows } = await supabase
+    .from("event_registrations")
+    .select("student_id, faction_id, team_id, students(name, roll_number), event_teams(name)")
+    .eq("event_slug", eventSlug);
+
+  type RegRow = {
+    student_id: string;
+    faction_id: string;
+    team_id: string | null;
+    students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
+    event_teams: { name: string } | { name: string }[] | null;
+  };
+  const regs = (regRows ?? []) as unknown as RegRow[];
+  if (regs.length === 0) return;
+
+  const factionIds = [...new Set(regs.map((r) => r.faction_id))];
+  const { data: factionRows } = await supabase.from("factions").select("id, name").in("id", factionIds);
+  const factionNameById = new Map((factionRows ?? []).map((f) => [f.id, f.name]));
+
+  const registrations: LockedRegistration[] = regs.map((r) => {
+    const student = Array.isArray(r.students) ? r.students[0] : r.students;
+    const team = Array.isArray(r.event_teams) ? r.event_teams[0] : r.event_teams;
+    return {
+      studentId: r.student_id,
+      studentName: student?.name ?? "—",
+      rollNumber: student?.roll_number ?? "—",
+      factionId: r.faction_id,
+      factionName: factionNameById.get(r.faction_id) ?? "—",
+      teamName: team?.name ?? null,
+    };
+  });
+
+  // 1. Confirmation email to every registered student.
+  await Promise.all(
+    registrations.map((r) =>
+      notify({
+        recipientType: "student",
+        recipientId: r.studentId,
+        email: deriveKjitEmail(r.rollNumber),
+        type: "event_locked_student",
+        subject: `MANOEUVRE 2026: You're locked in for ${event.name}`,
+        message: `You're registered for ${event.name}.\n\nDate: ${dateLabel}\nTime: ${timeLabel}\nVenue: ${venueLabel}\n\nRegistration is now closed — no changes possible. See you there.`,
+        html: eventLockedStudentHtml(event.name, dateLabel, timeLabel, venueLabel, posterUrl, r.studentName.split(" ")[0]),
+      })
+    )
+  );
+
+  // 2. Summary email to every faction head of every faction that registered someone.
+  const byFaction = new Map<string, LockedRegistration[]>();
+  for (const r of registrations) {
+    if (!byFaction.has(r.factionId)) byFaction.set(r.factionId, []);
+    byFaction.get(r.factionId)!.push(r);
+  }
+
+  await Promise.all(
+    [...byFaction.entries()].map(async ([factionId, members]) => {
+      const { data: heads } = await supabase
+        .from("faction_heads")
+        .select("id, roll_number")
+        .eq("faction_id", factionId);
+      if (!heads || heads.length === 0) return;
+
+      const factionName = factionNameById.get(factionId) ?? "your faction";
+      const teamNames = [...new Set(members.map((m) => m.teamName).filter((n): n is string => !!n))];
+      const teamCount = teamNames.length > 0 ? teamNames.length : 1;
+      const peopleList = members.map((m) => `${m.studentName} (${m.rollNumber})`).join(", ");
+
+      const message = `You registered ${teamCount} team${teamCount === 1 ? "" : "s"} from ${factionName} for ${event.name}, consisting of: ${peopleList}.\n\nVenue: ${venueLabel}\nTime: ${dateLabel}, ${timeLabel}\n\nRegistration is now locked — no further changes possible. Thank you!`;
+
+      await Promise.all(
+        heads.map((h) =>
+          notify({
+            recipientType: "organizer",
+            recipientId: h.id,
+            email: h.roll_number ? deriveKjitEmail(h.roll_number) : null,
+            type: "event_locked_faction_head",
+            subject: `MANOEUVRE 2026: ${event.name} registration locked — ${factionName}`,
+            message,
+            html: eventLockedFactionHeadHtml(event.name, factionName, teamCount, members, dateLabel, timeLabel, venueLabel),
+          })
+        )
+      );
+    })
+  );
+}
+
+const MAGENTA = "#ff2b8f";
+const CYAN = "#3ee9e6";
+const YELLOW = "#f4e04d";
+const VOID = "#060309";
+const FOG = "#ede9f2";
+const FOG_DIM = "#a79fb8";
+
+function emailShell(bodyHtml: string): string {
+  return `<div style="background:${VOID};padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:480px;margin:0 auto;background:${VOID};border:1px solid ${CYAN}66;border-radius:4px;overflow:hidden;box-shadow:0 0 24px ${CYAN}22;">
+    <div style="height:4px;background:linear-gradient(90deg, ${MAGENTA}, ${YELLOW}, ${CYAN});"></div>
+    ${bodyHtml}
+    <div style="height:4px;background:linear-gradient(90deg, ${CYAN}, ${YELLOW}, ${MAGENTA});"></div>
+  </div>
+</div>`;
+}
+
+function eventLockedStudentHtml(
+  eventName: string,
+  dateLabel: string,
+  timeLabel: string,
+  venueLabel: string,
+  posterUrl: string,
+  firstName: string
+): string {
+  return emailShell(`
+    <img src="${posterUrl}" alt="${eventName} poster" width="480" style="display:block;width:100%;height:auto;" />
+    <div style="padding:24px;color:${FOG};font-size:14px;line-height:1.6;">
+      <p style="margin:0;color:${YELLOW};font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;">// Manoeuvre 2026 — You're Locked In</p>
+      <h1 style="margin:6px 0 16px;color:${FOG};font-size:22px;text-transform:uppercase;letter-spacing:1px;">${eventName}</h1>
+      <p>Hey ${firstName},</p>
+      <p>Your registration for <strong style="color:${CYAN};">${eventName}</strong> is confirmed and locked.</p>
+      <div style="background:#0d0612;border:1px solid ${CYAN}44;border-radius:4px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 4px;"><strong>Date:</strong> ${dateLabel}</p>
+        <p style="margin:0 0 4px;"><strong>Time:</strong> ${timeLabel}</p>
+        <p style="margin:0;"><strong>Venue:</strong> ${venueLabel}</p>
+      </div>
+      <p style="color:${FOG_DIM};">No further changes can be made to your registration. Be there on time.</p>
+      <p style="color:${FOG_DIM};">— Team MANOEUVRE 2026</p>
+    </div>
+  `);
+}
+
+function eventLockedFactionHeadHtml(
+  eventName: string,
+  factionName: string,
+  teamCount: number,
+  members: LockedRegistration[],
+  dateLabel: string,
+  timeLabel: string,
+  venueLabel: string
+): string {
+  const rows = members
+    .map((m) => `<li>${m.studentName} <span style="color:${FOG_DIM};">(${m.rollNumber})</span>${m.teamName ? ` — <span style="color:${CYAN};">${m.teamName}</span>` : ""}</li>`)
+    .join("");
+  return emailShell(`
+    <div style="padding:24px;color:${FOG};font-size:14px;line-height:1.6;">
+      <p style="margin:0;color:${YELLOW};font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:bold;">// Manoeuvre 2026 — Registration Locked</p>
+      <h1 style="margin:6px 0 16px;color:${FOG};font-size:22px;text-transform:uppercase;letter-spacing:1px;">${eventName}</h1>
+      <p>You registered <strong style="color:${CYAN};">${teamCount} team${teamCount === 1 ? "" : "s"}</strong> from <strong style="color:${MAGENTA};">${factionName}</strong> for ${eventName}, consisting of:</p>
+      <ul style="margin:0 0 16px;padding-left:20px;">${rows}</ul>
+      <div style="background:#0d0612;border:1px solid ${CYAN}44;border-radius:4px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 4px;"><strong>Time:</strong> ${dateLabel}, ${timeLabel}</p>
+        <p style="margin:0;"><strong>Venue:</strong> ${venueLabel}</p>
+      </div>
+      <p style="color:${FOG_DIM};">Registration is now locked — no further changes possible. Thank you!</p>
+      <p style="color:${FOG_DIM};">— Team MANOEUVRE 2026</p>
+    </div>
+  `);
 }
 
 // --- Not yet wired to a scheduler ---
