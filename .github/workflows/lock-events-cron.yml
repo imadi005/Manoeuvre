@@ -1,0 +1,15 @@
+name: Lock events cron
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger lock-events check
+        run: |
+          curl -sf -X GET "https://kjitmanoeuvre.com/api/cron/lock-events" \
+            -H "authorization: Bearer ${{ secrets.CRON_SECRET }}"
