@@ -62,7 +62,12 @@ async function notify({
   // Kill switch — every email that isn't the login OTP (a separate code path
   // in lib/otp.ts, unaffected) routes through here. Off by default; flip
   // WORKFLOW_EMAILS_ENABLED=true in the environment to turn the rest back on.
-  const workflowEmailsEnabled = process.env.WORKFLOW_EMAILS_ENABLED === "true";
+  // event_locked_* has its own dedicated switch so it can be enabled
+  // independently of the rest of the workflow email flows.
+  const isLockNotification = type === "event_locked_student" || type === "event_locked_faction_head";
+  const workflowEmailsEnabled = isLockNotification
+    ? process.env.EVENT_LOCK_EMAILS_ENABLED === "true"
+    : process.env.WORKFLOW_EMAILS_ENABLED === "true";
 
   if (!workflowEmailsEnabled) {
     status = "skipped_disabled";
