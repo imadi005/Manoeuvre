@@ -4,9 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { events } from "@/lib/data";
 import { getEventRoster, getEventProgress } from "@/lib/eventRoster";
+import { getQuizState, getSubmissionCount, getEasterEggs } from "@/lib/quiz";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import EventWorkflowPanel from "@/components/EventWorkflowPanel";
+import QuizControlPanel from "@/components/QuizControlPanel";
 
 export default async function EventLeadDashboard() {
   const session = await getSession();
@@ -28,6 +30,11 @@ export default async function EventLeadDashboard() {
 
   const progress = session.detail ? await getEventProgress(session.detail) : { currentRound: 0, startedAt: null, completedAt: null };
 
+  const isBlacktieProtocol = session.detail === "blacktie-protocol";
+  const [quizState, quizSubmittedCount, quizEasterEggs] = isBlacktieProtocol
+    ? await Promise.all([getQuizState("blacktie-protocol"), getSubmissionCount("blacktie-protocol"), getEasterEggs("blacktie-protocol")])
+    : [null, 0, []];
+
   return (
     <>
       <Navbar />
@@ -43,6 +50,18 @@ export default async function EventLeadDashboard() {
           <p className="mt-3 font-mono-fx text-sm uppercase tracking-widest text-fog-dim">
             Leading: {event?.name ?? session.detail ?? "—"}
           </p>
+
+          {isBlacktieProtocol && quizState && (
+            <div className="mt-10">
+              <QuizControlPanel
+                startedAt={quizState.startedAt}
+                closedAt={quizState.closedAt}
+                submittedCount={quizSubmittedCount}
+                totalRegistered={individuals.length}
+                easterEggCount={quizEasterEggs.length}
+              />
+            </div>
+          )}
 
           {event && (
             <div className="mt-10">

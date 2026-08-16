@@ -29,6 +29,8 @@ export default async function StudentDashboard() {
     .map((r) => events.find((e) => e.slug === r.event_slug))
     .filter((e): e is (typeof events)[number] => Boolean(e));
 
+  const isInBlacktieProtocol = myEvents.some((e) => e.slug === "blacktie-protocol");
+
   return (
     <>
       <Navbar />
@@ -58,6 +60,19 @@ export default async function StudentDashboard() {
                 <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">Your Faction</p>
                 <p className="text-glow-accent font-display text-lg font-bold uppercase">{faction.name}</p>
               </div>
+            </Link>
+          )}
+
+          {isInBlacktieProtocol && (
+            <Link
+              href="/quiz/blacktie-protocol"
+              className="mt-6 flex items-center justify-between gap-3 border border-magenta/50 bg-magenta/10 px-4 py-3 transition-colors hover:border-magenta"
+            >
+              <div>
+                <p className="font-mono-fx text-[10px] uppercase tracking-widest text-magenta">// IT Manager Quiz</p>
+                <p className="font-display text-sm uppercase text-fog">The Blacktie Protocol — Round 1</p>
+              </div>
+              <span className="font-mono-fx text-xs uppercase tracking-widest text-magenta">Open →</span>
             </Link>
           )}
 
