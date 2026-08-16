@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { getRegistrationsOverview } from "@/lib/registrationsOverview";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { events, totalSlotsForEvent } from "@/lib/data";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -13,24 +12,6 @@ export default async function RegistrationsOverviewPage() {
   if (session.mustReset) redirect("/reset-password");
 
   const { factions, teams, flatRegs, totalRegistrations } = await getRegistrationsOverview();
-
-  const supabase = createAdminClient();
-  const { data: conflictRows, count: conflictCount } = await supabase
-    .from("conflict_attempts")
-    .select("attempted_event_slug, conflicting_event_slug, faction_id, created_at, students(name, roll_number)", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  type ConflictRow = {
-    attempted_event_slug: string;
-    conflicting_event_slug: string;
-    faction_id: string;
-    created_at: string;
-    students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
-  };
-  const conflicts = (conflictRows ?? []) as unknown as ConflictRow[];
-  const factionNameById = new Map(factions.map((f) => [f.id, f.name]));
-  const eventName = (slug: string) => events.find((e) => e.slug === slug)?.name ?? slug;
 
   // Faction x Event matrix: filled count + team count per cell. Empty teams
   // (started but nobody added yet) are real, but clutter this view — hidden
@@ -68,32 +49,6 @@ export default async function RegistrationsOverviewPage() {
           <p className="mt-3 font-mono-fx text-sm uppercase tracking-widest text-fog-dim">
             {totalRegistrations} total registrations · read-only, updates as faction heads register
           </p>
-
-          <div className="mt-8 border border-magenta/30 bg-panel/40 p-4">
-            <p className="font-mono-fx text-xs uppercase tracking-[0.35em] text-magenta text-glow-magenta">
-              // Schedule Conflicts Blocked
-            </p>
-            <p className="mt-2 font-display text-2xl font-bold text-fog">
-              {conflictCount ?? 0}
-              <span className="ml-2 font-mono-fx text-xs font-normal uppercase tracking-widest text-fog-dim">
-                attempts caught since this counter started tracking
-              </span>
-            </p>
-            {conflicts.length > 0 && (
-              <div className="mt-3 flex flex-col gap-1.5">
-                {conflicts.map((c, i) => {
-                  const s = Array.isArray(c.students) ? c.students[0] : c.students;
-                  return (
-                    <p key={i} className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
-                      {s ? `${s.name} (${s.roll_number})` : "—"} · {factionNameById.get(c.faction_id) ?? "—"} · tried{" "}
-                      <span className="text-fog">{eventName(c.attempted_event_slug)}</span>, already in{" "}
-                      <span className="text-fog">{eventName(c.conflicting_event_slug)}</span>
-                    </p>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
           {/* Mobile: one card per faction, event rows spelled out in words — the
               wide matrix below is genuinely hard to read on a phone even with
