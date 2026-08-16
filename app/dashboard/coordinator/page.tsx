@@ -166,12 +166,18 @@ export default async function CoordinatorDashboard() {
             </div>
           </div>
 
-          <div className="mt-10">
+          <div className="mt-10 flex flex-wrap gap-3">
             <Link
               href="/dashboard/coordinator/registrations"
               className="inline-block border border-cyan/60 px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void"
             >
               // Full Registrations Overview — Every Faction × Every Event × Every Team →
+            </Link>
+            <Link
+              href="/dashboard/star-of-manoeuvre"
+              className="inline-block border border-yellow/60 px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-yellow transition-colors hover:bg-yellow hover:text-void"
+            >
+              // Star of Manoeuvre — Individual Leaderboard →
             </Link>
           </div>
 

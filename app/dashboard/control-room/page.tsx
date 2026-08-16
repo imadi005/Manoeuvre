@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
@@ -67,6 +68,15 @@ export default async function ControlRoomDashboard() {
           <p className="mt-3 font-mono-fx text-sm uppercase tracking-widest text-fog-dim">
             Awaiting publish — one click sends it live on the leaderboard
           </p>
+
+          <div className="mt-6">
+            <Link
+              href="/dashboard/star-of-manoeuvre"
+              className="inline-block border border-yellow/60 px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-yellow transition-colors hover:bg-yellow hover:text-void"
+            >
+              // Star of Manoeuvre — Individual Leaderboard →
+            </Link>
+          </div>
 
           <div className="mt-10">
             <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
