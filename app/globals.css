@@ -240,75 +240,49 @@ body {
   animation: glitch-shake 0.15s infinite;
 }
 
-/* Hard black-out flicker -- screen "dies" then snaps back. Purely visual. */
-@keyframes glitch-blackout-flash {
-  0% { opacity: 0; }
-  6% { opacity: 1; }
-  9% { opacity: 0.6; }
-  12% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { opacity: 0; }
+/* Heavy full-screen glitch -- several RGB-tinted bands jump-cutting sideways
+   at random, plus a hue-rotate flicker on everything beneath. Purely visual. */
+@keyframes heavy-glitch-band {
+  0%, 100% { transform: translateX(0); opacity: 0.9; }
+  10% { transform: translateX(-3%); }
+  20% { transform: translateX(4%); }
+  30% { transform: translateX(-6%); }
+  40% { transform: translateX(2%); }
+  50% { transform: translateX(-2%); }
+  60% { transform: translateX(5%); }
+  70% { transform: translateX(-4%); }
+  80% { transform: translateX(3%); }
+  90% { transform: translateX(-1%); }
 }
 
-.glitch-blackout {
-  animation: glitch-blackout-flash 0.5s ease-in-out forwards;
-}
-
-/* Slow dying-signal fade, rises then falls over its lifetime. */
-@keyframes glitch-fade-pulse {
-  0% { opacity: 0; }
-  55% { opacity: 0.9; }
-  100% { opacity: 0; }
-}
-
-.glitch-fade {
-  animation: glitch-fade-pulse 2.6s ease-in-out forwards;
-}
-
-/* Shattering-glass panic burst -- six jagged fragments of the screen fly
-   apart and fade. Purely a full-screen overlay, never touches real content. */
-.shard {
+.heavy-glitch-band {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(62, 233, 230, 0.1), rgba(255, 43, 143, 0.12));
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  animation: shard-fly 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+  left: 0;
+  width: 100%;
+  background: linear-gradient(90deg, rgba(255, 43, 143, 0.35), rgba(62, 233, 230, 0.3));
+  mix-blend-mode: screen;
+  animation: heavy-glitch-band 0.4s steps(6) infinite;
 }
 
-.shard-1 { clip-path: polygon(0% 0%, 38% 0%, 22% 48%, 0% 40%); --tx: -60px; --ty: -40px; --rot: -25deg; }
-.shard-2 { clip-path: polygon(38% 0%, 74% 0%, 58% 42%, 22% 48%); --tx: 10px; --ty: -80px; --rot: 15deg; animation-delay: 0.03s; }
-.shard-3 { clip-path: polygon(74% 0%, 100% 0%, 100% 46%, 58% 42%); --tx: 90px; --ty: -30px; --rot: 30deg; animation-delay: 0.06s; }
-.shard-4 { clip-path: polygon(0% 40%, 22% 48%, 18% 100%, 0% 100%); --tx: -80px; --ty: 60px; --rot: -20deg; animation-delay: 0.02s; }
-.shard-5 { clip-path: polygon(22% 48%, 58% 42%, 62% 100%, 18% 100%); --tx: 10px; --ty: 90px; --rot: -10deg; animation-delay: 0.05s; }
-.shard-6 { clip-path: polygon(58% 42%, 100% 46%, 100% 100%, 62% 100%); --tx: 80px; --ty: 70px; --rot: 25deg; animation-delay: 0.04s; }
-
-@keyframes shard-fly {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
-  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(0.9); opacity: 0; }
+@keyframes heavy-glitch-hue {
+  0%, 100% { filter: hue-rotate(0deg) contrast(1.2); }
+  25% { filter: hue-rotate(45deg) contrast(1.6); }
+  50% { filter: hue-rotate(-30deg) contrast(1.3); }
+  75% { filter: hue-rotate(60deg) contrast(1.8); }
 }
 
-/* Full "OS is dying" panic sequence -- CRT power-off collapse to a bright
-   line, then out. Purely a full-screen overlay; the real quiz behind it is
-   completely unaffected and un-blocked. */
-@keyframes glitch-shutdown-collapse {
-  0%, 60% { transform: scaleY(1); filter: brightness(1); opacity: 1; }
-  75% { transform: scaleY(0.05); filter: brightness(3); opacity: 1; }
-  85% { transform: scaleY(0.01) scaleX(0.3); filter: brightness(6); opacity: 1; }
-  100% { transform: scaleY(0.002) scaleX(0.02); filter: brightness(0); opacity: 0; }
+.heavy-glitch-hue {
+  animation: heavy-glitch-hue 0.3s steps(4) infinite;
 }
 
-.glitch-shutdown-collapse {
-  transform-origin: center;
-  animation: glitch-shutdown-collapse 3.2s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+/* Windows-style shutdown spinner -- a ring of dots pulsing in sequence. */
+@keyframes winspin-dot {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
 }
 
-@keyframes glitch-drain {
-  from { width: 100%; }
-  to { width: 0%; }
-}
-
-.glitch-drain {
-  animation: glitch-drain 1.8s linear forwards;
+.winspin-dot {
+  animation: winspin-dot 1.2s ease-in-out infinite;
 }
 
 /* Blinking cursor / flicker */

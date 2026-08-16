@@ -6,22 +6,26 @@ import type { QuizQuestion, EasterEgg } from "@/lib/quiz";
 
 type Option = "A" | "B" | "C" | "D";
 type Phase = "waiting" | "active" | "closed";
-type GlitchKind = "banner" | "blackout" | "fade" | "hang" | "shatter" | "shutdown";
+type GlitchKind = "bsod" | "blank" | "heavyglitch" | "winshutdown";
 
-const GLITCH_MESSAGES = [
-  "⚠ CONNECTION UNSTABLE — RECONNECTING...",
-  "SYSTEM ERROR — RECOVERING...",
-  "⚠ PACKET LOSS DETECTED...",
-  "MEMORY LEAK — STABILIZING...",
-];
+const GLITCH_KINDS: GlitchKind[] = ["bsod", "blank", "heavyglitch", "winshutdown"];
+const GLITCH_DURATION_MS: Record<GlitchKind, number> = {
+  bsod: 10_000,
+  blank: 5_000,
+  heavyglitch: 5_000,
+  winshutdown: 5_000,
+};
 
-// Weighted -- shatter/shutdown appear twice as often as the milder ones.
-const GLITCH_KINDS: GlitchKind[] = ["shatter", "shatter", "shutdown", "shutdown", "hang", "blackout", "fade", "banner"];
-
-const SHUTDOWN_LINES = ["SHUTTING DOWN...", "TERMINATING SESSION...", "POWERING OFF...", "KERNEL PANIC — HALTING..."];
+const DODGE_RADIUS = 90;
+const DODGE_WINDOW_MS = 8_000;
+const DODGE_THROTTLE_MS = 40;
 
 function computeEndsAt(startedAt: string, durationMinutes: number): number {
   return new Date(startedAt).getTime() + durationMinutes * 60_000;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
 }
 
 export default function QuizRunner({
@@ -47,10 +51,12 @@ export default function QuizRunner({
   const [answers, setAnswers] = useState<Record<number, Option>>(initialAnswers);
   const [submitted, setSubmitted] = useState(alreadySubmitted);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
-  const [glitch, setGlitch] = useState<{ kind: GlitchKind; message: string } | null>(null);
+  const [glitch, setGlitch] = useState<GlitchKind | null>(null);
+  const [bsodPercent, setBsodPercent] = useState(0);
   const [egg, setEgg] = useState<EasterEgg | null>(null);
   const [fullscreenEntered, setFullscreenEntered] = useState(false);
   const [fullscreenWarning, setFullscreenWarning] = useState(false);
+  const [dodgeOffsets, setDodgeOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const [, startTransition] = useTransition();
 
   const submittedRef = useRef(submitted);
@@ -61,6 +67,11 @@ export default function QuizRunner({
   const glitchTriggersRef = useRef<number[]>([]);
   const eggFiredCountRef = useRef(0);
   const glitchFiredCountRef = useRef(0);
+  const dodgeQuestionsRef = useRef<number[]>([]);
+  const dodgeArmedRef = useRef<Record<number, boolean>>({});
+  const dodgeStartedAtRef = useRef<Record<number, number>>({});
+  const dodgeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const dodgeLastMoveRef = useRef(0);
 
   const phase: Phase = submitted || closedAt ? "closed" : startedAt ? "active" : "waiting";
 
@@ -117,8 +128,9 @@ export default function QuizRunner({
   }, [phase, fullscreenEntered]);
 
   // Decide *which answered-question counts* trigger an easter egg or a
-  // glitch, once, when the quiz goes active -- question-based, not
-  // wall-clock-based, so it can't get skipped by finishing early/fast.
+  // glitch, plus which 2 questions get the dodge-the-cursor prank -- all
+  // decided once, when the quiz goes active. Question-based, not
+  // wall-clock-based, so nothing can get skipped by finishing early/fast.
   useEffect(() => {
     if (phase !== "active" || !fullscreenEntered || scheduledRef.current) return;
     scheduledRef.current = true;
@@ -143,7 +155,16 @@ export default function QuizRunner({
       cursor += 5 + Math.floor(Math.random() * 2); // then roughly every 5-6
     }
     glitchTriggersRef.current = glitchTriggers;
-  }, [phase, fullscreenEntered, questions.length, easterEggs]);
+
+    if (totalQ > 10) {
+      const dodgePicks = new Set<number>();
+      while (dodgePicks.size < 2) {
+        dodgePicks.add(questions[3 + Math.floor(Math.random() * (totalQ - 6))].questionNumber);
+      }
+      dodgeQuestionsRef.current = [...dodgePicks];
+      for (const q of dodgeQuestionsRef.current) dodgeArmedRef.current[q] = true;
+    }
+  }, [phase, fullscreenEntered, questions, easterEggs]);
 
   // Fire whichever thresholds the answered-count has now reached.
   useEffect(() => {
@@ -164,15 +185,68 @@ export default function QuizRunner({
       answeredCount >= glitchTriggersRef.current[glitchFiredCountRef.current]
     ) {
       const kind = GLITCH_KINDS[Math.floor(Math.random() * GLITCH_KINDS.length)];
-      const messages = kind === "shutdown" ? SHUTDOWN_LINES : GLITCH_MESSAGES;
-      const message = messages[Math.floor(Math.random() * messages.length)];
-      setGlitch({ kind, message });
-      const duration =
-        kind === "fade" ? 2600 : kind === "hang" ? 2500 + Math.random() * 2000 : kind === "shutdown" ? 3200 : kind === "shatter" ? 1800 : 3000 + Math.random() * 3000;
-      setTimeout(() => setGlitch(null), duration);
+      setGlitch(kind);
+      if (kind === "bsod") {
+        setBsodPercent(0);
+        let pct = 0;
+        const bsodTimer = setInterval(() => {
+          pct = Math.min(100, pct + 3 + Math.floor(Math.random() * 9));
+          setBsodPercent(pct);
+          if (pct >= 100) clearInterval(bsodTimer);
+        }, 350);
+      }
+      setTimeout(() => setGlitch(null), GLITCH_DURATION_MS[kind]);
       glitchFiredCountRef.current += 1;
     }
-  }, [answers, phase, fullscreenEntered, easterEggs]);
+  }, [answers, phase, fullscreenEntered]);
+
+  // Dodge-the-cursor prank: on the 2 chosen questions, option buttons jump
+  // away from the mouse for up to 8s (from the first time the cursor gets
+  // close), then settle so the question stays answerable.
+  useEffect(() => {
+    if (phase !== "active" || !fullscreenEntered || dodgeQuestionsRef.current.length === 0) return;
+
+    function handleMove(e: MouseEvent) {
+      const now = Date.now();
+      if (now - dodgeLastMoveRef.current < DODGE_THROTTLE_MS) return;
+      dodgeLastMoveRef.current = now;
+
+      for (const qNum of dodgeQuestionsRef.current) {
+        if (!dodgeArmedRef.current[qNum]) continue;
+
+        for (const opt of ["A", "B", "C", "D"] as Option[]) {
+          const key = `${qNum}-${opt}`;
+          const el = dodgeButtonRefs.current[key];
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
+          if (dist >= DODGE_RADIUS) continue;
+
+          if (!dodgeStartedAtRef.current[qNum]) dodgeStartedAtRef.current[qNum] = now;
+          const angle = Math.atan2(cy - e.clientY, cx - e.clientX);
+          const mag = 55 + Math.random() * 55;
+          setDodgeOffsets((prev) => ({
+            ...prev,
+            [key]: { x: clamp(Math.cos(angle) * mag, -110, 110), y: clamp(Math.sin(angle) * mag, -50, 50) },
+          }));
+        }
+
+        if (dodgeStartedAtRef.current[qNum] && now - dodgeStartedAtRef.current[qNum] > DODGE_WINDOW_MS) {
+          dodgeArmedRef.current[qNum] = false;
+          setDodgeOffsets((prev) => {
+            const next = { ...prev };
+            for (const opt of ["A", "B", "C", "D"]) delete next[`${qNum}-${opt}`];
+            return next;
+          });
+        }
+      }
+    }
+
+    window.addEventListener("mousemove", handleMove);
+    return () => window.removeEventListener("mousemove", handleMove);
+  }, [phase, fullscreenEntered]);
 
   function handleSelect(questionNumber: number, option: Option) {
     setAnswers((prev) => ({ ...prev, [questionNumber]: option }));
@@ -275,47 +349,56 @@ export default function QuizRunner({
         </div>
       )}
 
-      {glitch?.kind === "banner" && (
-        <div className="glitch-shake fixed inset-0 z-40 flex items-center justify-center bg-void/90 backdrop-blur-sm">
-          <p className="font-mono-fx text-sm uppercase tracking-widest text-magenta text-glow-magenta">{glitch.message}</p>
-        </div>
-      )}
-
-      {glitch?.kind === "blackout" && <div className="glitch-blackout fixed inset-0 z-40 bg-void" />}
-
-      {glitch?.kind === "shatter" && (
-        <div className="glitch-shake fixed inset-0 z-40 overflow-hidden">
-          <div className="shard shard-1" />
-          <div className="shard shard-2" />
-          <div className="shard shard-3" />
-          <div className="shard shard-4" />
-          <div className="shard shard-5" />
-          <div className="shard shard-6" />
-        </div>
-      )}
-
-      {glitch?.kind === "shutdown" && (
-        <div className="glitch-shutdown-collapse fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-void">
-          <p className="flicker font-mono-fx text-xs uppercase tracking-[0.4em] text-magenta text-glow-magenta">
-            {glitch.message}
+      {glitch === "bsod" && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0078d7] px-6 text-white">
+          <p className="text-8xl font-light">:(</p>
+          <p className="mt-6 max-w-lg text-lg leading-snug">
+            Your PC ran into a problem and needs to restart. We&apos;re just collecting some error info, and then we&apos;ll restart for you.
           </p>
-          <div className="h-1 w-56 overflow-hidden border border-magenta/40">
-            <div className="glitch-drain h-full bg-magenta" />
-          </div>
-          <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">Do not turn off the terminal</p>
+          <p className="mt-6 text-lg">{bsodPercent}% complete</p>
+          <p className="mt-10 max-w-md text-sm opacity-90">
+            For more information about this issue and possible fixes, visit https://www.windows.com/stopcode
+          </p>
+          <p className="mt-2 text-sm opacity-80">Stop code: QUIZ_PANIC_EXCEPTION</p>
         </div>
       )}
 
-      {glitch?.kind === "fade" && <div className="glitch-fade fixed inset-0 z-40 bg-void" />}
+      {glitch === "blank" && <div className="fixed inset-0 z-[60] bg-black" />}
 
-      {glitch?.kind === "hang" && (
-        <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
-          <div className="flex items-center gap-2 border border-fog-dim/40 bg-void/95 px-5 py-3">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-fog-dim" />
-            <p className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
-              Not Responding<span className="caret">_</span>
-            </p>
+      {glitch === "heavyglitch" && (
+        <div className="heavy-glitch-hue fixed inset-0 z-[60] overflow-hidden bg-void">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div
+              key={i}
+              className="heavy-glitch-band"
+              style={{
+                top: `${i * 10}%`,
+                height: `${8 + Math.random() * 6}%`,
+                animationDelay: `${(i % 5) * 0.05}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {glitch === "winshutdown" && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-8 bg-black">
+          <div className="relative h-16 w-16">
+            {Array.from({ length: 8 }).map((_, i) => {
+              const angle = (i / 8) * 2 * Math.PI;
+              const r = 26;
+              const x = 32 + r * Math.cos(angle) - 3;
+              const y = 32 + r * Math.sin(angle) - 3;
+              return (
+                <span
+                  key={i}
+                  className="winspin-dot absolute h-1.5 w-1.5 rounded-full bg-white"
+                  style={{ left: x, top: y, animationDelay: `${i * 0.12}s` }}
+                />
+              );
+            })}
           </div>
+          <p className="text-lg text-white">Shutting down</p>
         </div>
       )}
 
@@ -331,7 +414,7 @@ export default function QuizRunner({
         </div>
       )}
 
-      <div className={glitch?.kind === "hang" ? "blur-[1.5px] grayscale contrast-125 transition-all" : "transition-all"}>
+      <div>
         <div className="sticky top-16 z-30 mb-6 flex flex-wrap items-center justify-between gap-3 border border-panel-line bg-void/95 px-4 py-3 backdrop-blur">
           <span className="font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
             {answeredCount}/{questions.length} answered
@@ -361,19 +444,27 @@ export default function QuizRunner({
                   ["B", q.optionB],
                   ["C", q.optionC],
                   ["D", q.optionD],
-                ] as [Option, string][]).map(([opt, text]) => (
-                  <button
-                    key={opt}
-                    onClick={() => handleSelect(q.questionNumber, opt)}
-                    className={`border px-3 py-2 text-left font-body text-sm transition-colors ${
-                      answers[q.questionNumber] === opt
-                        ? "border-cyan bg-cyan/10 text-cyan"
-                        : "border-panel-line text-fog hover:border-cyan/50"
-                    }`}
-                  >
-                    <span className="font-mono-fx text-xs text-fog-dim">{opt}.</span> {text}
-                  </button>
-                ))}
+                ] as [Option, string][]).map(([opt, text]) => {
+                  const dodgeKey = `${q.questionNumber}-${opt}`;
+                  const offset = dodgeOffsets[dodgeKey];
+                  return (
+                    <button
+                      key={opt}
+                      ref={(el) => {
+                        dodgeButtonRefs.current[dodgeKey] = el;
+                      }}
+                      onClick={() => handleSelect(q.questionNumber, opt)}
+                      style={offset ? { transform: `translate(${offset.x}px, ${offset.y}px)`, transition: "transform 0.12s ease-out" } : undefined}
+                      className={`relative border px-3 py-2 text-left font-body text-sm transition-colors ${
+                        answers[q.questionNumber] === opt
+                          ? "border-cyan bg-cyan/10 text-cyan"
+                          : "border-panel-line text-fog hover:border-cyan/50"
+                      }`}
+                    >
+                      <span className="font-mono-fx text-xs text-fog-dim">{opt}.</span> {text}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
