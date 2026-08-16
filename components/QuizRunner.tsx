@@ -6,7 +6,7 @@ import type { QuizQuestion, EasterEgg } from "@/lib/quiz";
 
 type Option = "A" | "B" | "C" | "D";
 type Phase = "waiting" | "active" | "closed";
-type GlitchKind = "banner" | "blackout" | "fade" | "hang";
+type GlitchKind = "banner" | "blackout" | "fade" | "hang" | "shatter" | "shutdown";
 
 const GLITCH_MESSAGES = [
   "⚠ CONNECTION UNSTABLE — RECONNECTING...",
@@ -15,7 +15,10 @@ const GLITCH_MESSAGES = [
   "MEMORY LEAK — STABILIZING...",
 ];
 
-const GLITCH_KINDS: GlitchKind[] = ["banner", "blackout", "fade", "hang"];
+// Weighted -- shatter/shutdown appear twice as often as the milder ones.
+const GLITCH_KINDS: GlitchKind[] = ["shatter", "shatter", "shutdown", "shutdown", "hang", "blackout", "fade", "banner"];
+
+const SHUTDOWN_LINES = ["SHUTTING DOWN...", "TERMINATING SESSION...", "POWERING OFF...", "KERNEL PANIC — HALTING..."];
 
 function computeEndsAt(startedAt: string, durationMinutes: number): number {
   return new Date(startedAt).getTime() + durationMinutes * 60_000;
@@ -54,6 +57,7 @@ export default function QuizRunner({
   submittedRef.current = submitted;
   const scheduledRef = useRef(false);
   const eggTriggersRef = useRef<number[]>([]);
+  const eggOrderRef = useRef<EasterEgg[]>([]);
   const glitchTriggersRef = useRef<number[]>([]);
   const eggFiredCountRef = useRef(0);
   const glitchFiredCountRef = useRef(0);
@@ -128,6 +132,8 @@ export default function QuizRunner({
         picks.add(3 + Math.floor(Math.random() * (totalQ - 5)));
       }
       eggTriggersRef.current = [...picks].sort((a, b) => a - b);
+      // Shuffle once so each trigger shows a different egg -- no repeats until all are seen.
+      eggOrderRef.current = [...easterEggs].sort(() => Math.random() - 0.5).slice(0, eggCount);
     }
 
     const glitchTriggers: number[] = [];
@@ -148,8 +154,8 @@ export default function QuizRunner({
       eggFiredCountRef.current < eggTriggersRef.current.length &&
       answeredCount >= eggTriggersRef.current[eggFiredCountRef.current]
     ) {
-      const pick = easterEggs[Math.floor(Math.random() * easterEggs.length)];
-      setEgg(pick);
+      const pick = eggOrderRef.current[eggFiredCountRef.current];
+      if (pick) setEgg(pick);
       eggFiredCountRef.current += 1;
     }
 
@@ -158,9 +164,11 @@ export default function QuizRunner({
       answeredCount >= glitchTriggersRef.current[glitchFiredCountRef.current]
     ) {
       const kind = GLITCH_KINDS[Math.floor(Math.random() * GLITCH_KINDS.length)];
-      const message = GLITCH_MESSAGES[Math.floor(Math.random() * GLITCH_MESSAGES.length)];
+      const messages = kind === "shutdown" ? SHUTDOWN_LINES : GLITCH_MESSAGES;
+      const message = messages[Math.floor(Math.random() * messages.length)];
       setGlitch({ kind, message });
-      const duration = kind === "fade" ? 2600 : kind === "hang" ? 2500 + Math.random() * 2000 : 3000 + Math.random() * 3000;
+      const duration =
+        kind === "fade" ? 2600 : kind === "hang" ? 2500 + Math.random() * 2000 : kind === "shutdown" ? 3200 : kind === "shatter" ? 1800 : 3000 + Math.random() * 3000;
       setTimeout(() => setGlitch(null), duration);
       glitchFiredCountRef.current += 1;
     }
@@ -274,6 +282,29 @@ export default function QuizRunner({
       )}
 
       {glitch?.kind === "blackout" && <div className="glitch-blackout fixed inset-0 z-40 bg-void" />}
+
+      {glitch?.kind === "shatter" && (
+        <div className="glitch-shake fixed inset-0 z-40 overflow-hidden">
+          <div className="shard shard-1" />
+          <div className="shard shard-2" />
+          <div className="shard shard-3" />
+          <div className="shard shard-4" />
+          <div className="shard shard-5" />
+          <div className="shard shard-6" />
+        </div>
+      )}
+
+      {glitch?.kind === "shutdown" && (
+        <div className="glitch-shutdown-collapse fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-void">
+          <p className="flicker font-mono-fx text-xs uppercase tracking-[0.4em] text-magenta text-glow-magenta">
+            {glitch.message}
+          </p>
+          <div className="h-1 w-56 overflow-hidden border border-magenta/40">
+            <div className="glitch-drain h-full bg-magenta" />
+          </div>
+          <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">Do not turn off the terminal</p>
+        </div>
+      )}
 
       {glitch?.kind === "fade" && <div className="glitch-fade fixed inset-0 z-40 bg-void" />}
 
