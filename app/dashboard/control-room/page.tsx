@@ -18,7 +18,7 @@ export default async function ControlRoomDashboard() {
   const { data: resultRows } = await supabase
     .from("event_results")
     .select(
-      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id, notes, submitted_by, faculty_approved_by"
+      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
     )
     .eq("status", "faculty_approved");
 
@@ -39,7 +39,6 @@ export default async function ControlRoomDashboard() {
     first: r.first_faction_id ? (factionNameById.get(r.first_faction_id) ?? null) : null,
     second: r.second_faction_id ? (factionNameById.get(r.second_faction_id) ?? null) : null,
     third: r.third_faction_id ? (factionNameById.get(r.third_faction_id) ?? null) : null,
-    fourth: r.fourth_faction_id ? (factionNameById.get(r.fourth_faction_id) ?? null) : null,
     notes: r.notes,
     submittedBy: (r.submitted_by ? orgNameById.get(r.submitted_by) : null) ?? "—",
     facultyApprovedBy: (r.faculty_approved_by ? orgNameById.get(r.faculty_approved_by) : null) ?? "—",

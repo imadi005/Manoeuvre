@@ -24,16 +24,38 @@ export interface RosterIndividual {
   factionName: string;
 }
 
-export type RoundStatus = "advanced" | "eliminated" | "winner" | "runner_up";
+export type RoundStatus = "advanced" | "eliminated" | "winner" | "runner_up" | "third";
 
 /** unitId -> status, per round number. unitId is a team id for team events, a student id for flat events. */
 export type RoundResultsByRound = Record<number, Record<string, RoundStatus>>;
+
+export interface EventProgress {
+  currentRound: number;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+/** Attendance/round-progress state for one event — 0 = not started yet (attendance phase). */
+export async function getEventProgress(eventSlug: string): Promise<EventProgress> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("event_progress")
+    .select("current_round, started_at, completed_at")
+    .eq("event_slug", eventSlug)
+    .maybeSingle();
+  return {
+    currentRound: data?.current_round ?? 0,
+    startedAt: data?.started_at ?? null,
+    completedAt: data?.completed_at ?? null,
+  };
+}
 
 /** Full cross-faction roster for one event — every registered team (or individual, for flat events) across all 8 factions. Used by the event lead's round-progress entry and the public event page's display. */
 export async function getEventRoster(eventSlug: string): Promise<{
   teams: RosterTeam[];
   individuals: RosterIndividual[];
   roundResults: RoundResultsByRound;
+  presentUnitIds: Set<string>;
 }> {
   const supabase = createAdminClient();
 
@@ -104,5 +126,15 @@ export async function getEventRoster(eventSlug: string): Promise<{
     roundResults[r.round_number][unitId] = r.status as RoundStatus;
   }
 
-  return { teams, individuals, roundResults };
+  const { data: attendanceRows } = await supabase
+    .from("event_attendance")
+    .select("team_id, student_id")
+    .eq("event_slug", eventSlug);
+  const presentUnitIds = new Set<string>();
+  for (const a of attendanceRows ?? []) {
+    const unitId = a.team_id ?? a.student_id;
+    if (unitId) presentUnitIds.add(unitId);
+  }
+
+  return { teams, individuals, roundResults, presentUnitIds };
 }

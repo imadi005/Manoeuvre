@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { factions, events } from "@/lib/data";
-import { computeFactionTotals, pointsForPlacement } from "@/lib/scoring";
+import { computeFactionTotals, computeParticipationTotals, mergeFactionTotals, pointsForPlacement } from "@/lib/scoring";
 
 export const revalidate = 30;
 
@@ -13,15 +13,18 @@ export default async function LeaderboardPage() {
   const supabase = createAdminClient();
   const { data: verified } = await supabase
     .from("event_results")
-    .select("event_slug, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id")
+    .select("event_slug, first_faction_id, second_faction_id, third_faction_id")
     .eq("status", "published");
+
+  const { data: attendance } = await supabase.from("event_attendance").select("event_slug, faction_id");
 
   // Need faction DB ids to match against event_results (which store uuid, not slug).
   const { data: factionRows } = await supabase.from("factions").select("id, slug");
   const slugById = new Map((factionRows ?? []).map((f) => [f.id, f.slug]));
 
+  const totals = mergeFactionTotals(computeFactionTotals(verified ?? []), computeParticipationTotals(attendance ?? []));
   const totalsBySlug = new Map<string, number>();
-  for (const [factionId, points] of computeFactionTotals(verified ?? [])) {
+  for (const [factionId, points] of totals) {
     const slug = slugById.get(factionId);
     if (slug) totalsBySlug.set(slug, points);
   }
@@ -46,8 +49,9 @@ export default async function LeaderboardPage() {
               The <span className="text-magenta text-glow-magenta">Leaderboard.</span>
             </h1>
             <p className="mx-auto mt-4 max-w-xl font-body text-sm text-fog-dim">
-              Points only count once a result clears faculty approval and
-              control room publishes it. Updates as the fest happens.
+              Participation points count the moment a team shows up. Winner /
+              Runner-up / 3rd points count once a result clears faculty
+              approval and control room publishes it. Updates as the fest happens.
             </p>
           </Reveal>
 
@@ -100,12 +104,12 @@ export default async function LeaderboardPage() {
                   const event = events.find((e) => e.slug === r.event_slug);
                   const placementText = (
                     factionId: string | null,
-                    place: 1 | 2 | 3 | 4
+                    tier: "winner" | "runner_up" | "third"
                   ) => {
                     if (!factionId) return null;
                     const slug = slugById.get(factionId);
                     const faction = factions.find((f) => f.slug === slug);
-                    const pts = pointsForPlacement(r.event_slug, place);
+                    const pts = pointsForPlacement(r.event_slug, tier);
                     return faction ? `${faction.name} (+${pts})` : null;
                   };
                   return (
@@ -119,10 +123,9 @@ export default async function LeaderboardPage() {
                       </p>
                       <p className="mt-1 font-mono-fx text-xs text-fog-dim">
                         {[
-                          placementText(r.first_faction_id, 1),
-                          placementText(r.second_faction_id, 2),
-                          placementText(r.third_faction_id, 3),
-                          placementText(r.fourth_faction_id, 4),
+                          placementText(r.first_faction_id, "winner"),
+                          placementText(r.second_faction_id, "runner_up"),
+                          placementText(r.third_faction_id, "third"),
                         ]
                           .filter(Boolean)
                           .join(" · ")}

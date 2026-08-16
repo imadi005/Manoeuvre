@@ -19,7 +19,7 @@ export default async function DocumentationDashboard() {
 
   const { data: resultRows } = await supabase
     .from("event_results")
-    .select("event_slug, status, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id");
+    .select("event_slug, status, first_faction_id, second_faction_id, third_faction_id");
 
   const { data: factionRows } = await supabase.from("factions").select("id, name");
   const factionNameById = new Map((factionRows ?? []).map((f) => [f.id, f.name]));
@@ -60,16 +60,15 @@ export default async function DocumentationDashboard() {
     const closed = result?.status === "published";
     const placements = closed
       ? ([
-          [1, result!.first_faction_id],
-          [2, result!.second_faction_id],
-          [3, result!.third_faction_id],
-          [4, result!.fourth_faction_id],
+          ["winner", result!.first_faction_id],
+          ["runner_up", result!.second_faction_id],
+          ["third", result!.third_faction_id],
         ] as const)
           .filter(([, id]) => id)
-          .map(([place, id]) => ({
-            place,
+          .map(([tier, id]) => ({
+            tier,
             faction: factionNameById.get(id as string) ?? "—",
-            points: pointsForPlacement(e.slug, place),
+            points: pointsForPlacement(e.slug, tier),
           }))
       : [];
 
@@ -149,9 +148,9 @@ export default async function DocumentationDashboard() {
 
                     <div className="mt-4 flex flex-col gap-1.5">
                       {r.placements.map((p) => (
-                        <p key={p.place} className="font-mono-fx text-xs text-fog">
+                        <p key={p.tier} className="font-mono-fx text-xs text-fog">
                           <span className="text-fog-dim">
-                            {p.place === 1 ? "1st" : p.place === 2 ? "2nd" : p.place === 3 ? "3rd" : "4th"}
+                            {p.tier === "winner" ? "Winner" : p.tier === "runner_up" ? "Runner-Up" : "3rd"}
                           </span>{" "}
                           — {p.faction} (+{p.points})
                         </p>

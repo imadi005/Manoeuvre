@@ -3,11 +3,10 @@ import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { events } from "@/lib/data";
-import { getEventRoster } from "@/lib/eventRoster";
+import { getEventRoster, getEventProgress } from "@/lib/eventRoster";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import EventResultForm from "@/components/EventResultForm";
-import RoundProgressPanel from "@/components/RoundProgressPanel";
+import EventWorkflowPanel from "@/components/EventWorkflowPanel";
 
 export default async function EventLeadDashboard() {
   const session = await getSession();
@@ -17,18 +16,15 @@ export default async function EventLeadDashboard() {
   const event = events.find((e) => e.slug === session.detail);
 
   const supabase = createAdminClient();
-  const { data: factionRows } = await supabase.from("factions").select("id, name").order("name");
-  const { data: existing } = session.detail
-    ? await supabase
-        .from("event_results")
-        .select("status, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id, notes, rejection_reason")
-        .eq("event_slug", session.detail)
-        .maybeSingle()
+  const { data: existingResult } = session.detail
+    ? await supabase.from("event_results").select("status").eq("event_slug", session.detail).maybeSingle()
     : { data: null };
 
-  const { teams, individuals, roundResults } = session.detail
+  const { teams, individuals, roundResults, presentUnitIds } = session.detail
     ? await getEventRoster(session.detail)
-    : { teams: [], individuals: [], roundResults: {} };
+    : { teams: [], individuals: [], roundResults: {}, presentUnitIds: new Set<string>() };
+
+  const progress = session.detail ? await getEventProgress(session.detail) : { currentRound: 0, startedAt: null, completedAt: null };
 
   return (
     <>
@@ -46,20 +42,17 @@ export default async function EventLeadDashboard() {
             Leading: {event?.name ?? session.detail ?? "—"}
           </p>
 
-          <div className="mt-10">
-            <EventResultForm factions={factionRows ?? []} existing={existing} />
-          </div>
-
           {event && (
-            <div className="mt-12">
-              <p className="mb-4 font-mono-fx text-xs uppercase tracking-[0.35em] text-fog-dim">
-                // Round Progress
-              </p>
-              <RoundProgressPanel
+            <div className="mt-10">
+              <EventWorkflowPanel
                 totalRounds={event.rounds}
                 teams={teams}
                 individuals={individuals}
                 roundResults={roundResults}
+                presentUnitIds={presentUnitIds}
+                currentRound={progress.currentRound}
+                completedAt={progress.completedAt}
+                resultStatus={existingResult?.status ?? null}
               />
             </div>
           )}

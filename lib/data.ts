@@ -86,7 +86,7 @@ export const events: FestEvent[] = [
     glow: "cyan",
     teamConfig: { teamsPerFaction: 3, membersPerTeam: 2 },
     rounds: 3,
-    pointsTier: { label: "Tier 2", points: 75 },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
   {
     slug: "blacktie-protocol",
@@ -125,7 +125,7 @@ export const events: FestEvent[] = [
     glow: "yellow",
     teamConfig: { teamsPerFaction: 8, membersPerTeam: 3 },
     rounds: 3,
-    pointsTier: { label: "Tier 2", points: 75 },
+    pointsTier: { label: "Tier 2", points: 80 },
   },
   {
     slug: "blackout-build",
@@ -143,7 +143,7 @@ export const events: FestEvent[] = [
     glow: "cyan",
     teamConfig: { teamsPerFaction: 3, membersPerTeam: 3 },
     rounds: 2,
-    pointsTier: { label: "Tier 1", points: 100 },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
   {
     slug: "static-vision",
@@ -161,7 +161,7 @@ export const events: FestEvent[] = [
     glow: "magenta",
     teamConfig: { teamsPerFaction: 1, membersPerTeam: [5, 10] },
     rounds: 2,
-    pointsTier: { label: "Tier 3", points: 50 },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
   {
     slug: "cyberpitch",
@@ -180,7 +180,7 @@ export const events: FestEvent[] = [
     glow: "yellow",
     teamConfig: { teamsPerFaction: 2, membersPerTeam: 2 },
     rounds: 3,
-    pointsTier: { label: "Tier 2", points: 75 },
+    pointsTier: { label: "Tier 2", points: 80 },
   },
   {
     slug: "ghost-override",
@@ -198,7 +198,7 @@ export const events: FestEvent[] = [
     glow: "cyan",
     teamConfig: { teamsPerFaction: 2, membersPerTeam: 3 },
     rounds: 2,
-    pointsTier: { label: "Tier 3", points: 50 },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
   {
     slug: "the-grid",
@@ -220,7 +220,7 @@ export const events: FestEvent[] = [
       { key: "pes", label: "PES", teamsPerFaction: 1, membersPerTeam: 4 },
     ],
     rounds: 2,
-    pointsTier: { label: "Tier 3", points: 50 },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
   {
     slug: "sleeper-cell",
@@ -235,7 +235,7 @@ export const events: FestEvent[] = [
     glow: "yellow",
     teamConfig: { teamsPerFaction: 4, membersPerTeam: 3 },
     rounds: 1,
-    pointsTier: { label: "Tier 3", points: 50 },
+    pointsTier: { label: "Tier 2", points: 80 },
   },
   {
     slug: "the-trace",
@@ -244,7 +244,6 @@ export const events: FestEvent[] = [
     tagline: "A city-wide hunt. Every clue is a decoy until it isn't.",
     briefing: [
       "Factions trace hidden signals and data trails across campus — part scavenger hunt, part puzzle relay, part physical mini-games, escalating to a final decryption challenge.",
-      "Bonus-tier event — its exact point value stays hidden until the closing ceremony.",
     ],
     format: [
       "Round 1: Cipher prelim, 19 Aug (up to 40 teams)",
@@ -254,7 +253,7 @@ export const events: FestEvent[] = [
     glow: "cyan",
     teamConfig: { teamsPerFaction: 5, membersPerTeam: 3 },
     rounds: 3,
-    pointsTier: { label: "Bonus", points: null },
+    pointsTier: { label: "Tier 3", points: 60 },
   },
 ];
 

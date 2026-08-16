@@ -8,7 +8,6 @@ interface PendingResult {
   first: string | null;
   second: string | null;
   third: string | null;
-  fourth: string | null;
   notes: string | null;
   submittedBy: string;
 }
@@ -68,12 +67,11 @@ export default function ResultVerificationBoard({
                 {submittedByLabel} {r.submittedBy}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               {[
-                { label: "1st", value: r.first },
-                { label: "2nd", value: r.second },
+                { label: "Winner", value: r.first },
+                { label: "Runner-Up", value: r.second },
                 { label: "3rd", value: r.third },
-                { label: "4th", value: r.fourth },
               ].map((p) => (
                 <div key={p.label} className="border border-panel-line bg-void px-3 py-2 text-center">
                   <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">

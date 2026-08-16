@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logout } from "@/app/login/actions";
 import { events, factions as staticFactions } from "@/lib/data";
-import { computeFactionTotals } from "@/lib/scoring";
+import { computeFactionTotals, computeParticipationTotals, mergeFactionTotals } from "@/lib/scoring";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ResultVerificationBoard from "@/components/ResultVerificationBoard";
@@ -28,11 +28,13 @@ export default async function CoordinatorDashboard() {
   const { data: allResults } = await supabase
     .from("event_results")
     .select(
-      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id, notes, submitted_by, faculty_approved_by"
+      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
     );
 
+  const { data: attendanceRows } = await supabase.from("event_attendance").select("event_slug, faction_id");
+
   const published = (allResults ?? []).filter((r) => r.status === "published");
-  const totalsById = computeFactionTotals(published);
+  const totalsById = mergeFactionTotals(computeFactionTotals(published), computeParticipationTotals(attendanceRows ?? []));
   const idBySlug = new Map((factionRows ?? []).map((f) => [f.slug, f.id]));
 
   const standings = [...staticFactions]
@@ -75,7 +77,6 @@ export default async function CoordinatorDashboard() {
     first: r.first_faction_id ? (factionNameById.get(r.first_faction_id) ?? null) : null,
     second: r.second_faction_id ? (factionNameById.get(r.second_faction_id) ?? null) : null,
     third: r.third_faction_id ? (factionNameById.get(r.third_faction_id) ?? null) : null,
-    fourth: r.fourth_faction_id ? (factionNameById.get(r.fourth_faction_id) ?? null) : null,
     notes: r.notes,
     submittedBy: (r.submitted_by ? orgNameById.get(r.submitted_by) : null) ?? "—",
     facultyApprovedBy: (r.faculty_approved_by ? orgNameById.get(r.faculty_approved_by) : null) ?? "—",

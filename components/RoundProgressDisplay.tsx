@@ -5,6 +5,7 @@ const STATUS_LABEL: Record<RoundStatus, string> = {
   eliminated: "Eliminated",
   winner: "Winner",
   runner_up: "Runner-Up",
+  third: "3rd Position",
 };
 
 const STATUS_COLOR: Record<RoundStatus, string> = {
@@ -12,6 +13,7 @@ const STATUS_COLOR: Record<RoundStatus, string> = {
   eliminated: "text-fog-dim line-through",
   winner: "text-yellow text-glow-yellow",
   runner_up: "text-yellow",
+  third: "text-yellow",
 };
 
 export default function RoundProgressDisplay({

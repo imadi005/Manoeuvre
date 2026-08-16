@@ -20,7 +20,7 @@ export default async function FacultyDashboard() {
   const { data: resultRows } = session.detail
     ? await supabase
         .from("event_results")
-        .select("id, event_slug, first_faction_id, second_faction_id, third_faction_id, fourth_faction_id, notes, submitted_by")
+        .select("id, event_slug, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by")
         .eq("event_slug", session.detail)
         .eq("status", "submitted")
     : { data: [] };
@@ -40,7 +40,6 @@ export default async function FacultyDashboard() {
     first: r.first_faction_id ? (factionNameById.get(r.first_faction_id) ?? null) : null,
     second: r.second_faction_id ? (factionNameById.get(r.second_faction_id) ?? null) : null,
     third: r.third_faction_id ? (factionNameById.get(r.third_faction_id) ?? null) : null,
-    fourth: r.fourth_faction_id ? (factionNameById.get(r.fourth_faction_id) ?? null) : null,
     notes: r.notes,
     submittedBy: (r.submitted_by ? submitterNameById.get(r.submitted_by) : null) ?? "—",
   }));
