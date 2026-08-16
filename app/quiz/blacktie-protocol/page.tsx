@@ -41,7 +41,7 @@ export default async function BlacktieQuizPage() {
 
   const [state, questions, answers, submission, easterEggs, present] = await Promise.all([
     getQuizState(EVENT_SLUG),
-    getQuizQuestions(EVENT_SLUG),
+    getQuizQuestions(EVENT_SLUG, session.id),
     getStudentAnswers(EVENT_SLUG, session.id),
     getStudentSubmission(EVENT_SLUG, session.id),
     getEasterEggs(EVENT_SLUG),

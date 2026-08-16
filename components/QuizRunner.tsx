@@ -6,26 +6,57 @@ import type { QuizQuestion, EasterEgg } from "@/lib/quiz";
 
 type Option = "A" | "B" | "C" | "D";
 type Phase = "waiting" | "active" | "closed";
-type GlitchKind = "bsod" | "blank" | "heavyglitch" | "winshutdown";
+type GlitchKind = "bsod" | "blank" | "heavyglitch" | "winshutdown" | "autocode";
 
-const GLITCH_KINDS: GlitchKind[] = ["bsod", "blank", "heavyglitch", "winshutdown"];
+// Every kind fires at most once per run -- order is shuffled per quiz load.
+const ALL_GLITCH_KINDS: GlitchKind[] = ["bsod", "blank", "heavyglitch", "winshutdown", "autocode"];
 const GLITCH_DURATION_MS: Record<GlitchKind, number> = {
   bsod: 10_000,
   blank: 5_000,
   heavyglitch: 5_000,
   winshutdown: 5_000,
+  autocode: 10_000,
 };
 
-const DODGE_RADIUS = 90;
+const AUTOCODE_SCRIPT = `root@kernel:~# sudo access --override secure_zone
+[sudo] escalating privileges... granted
+Bypassing firewall............... [OK]
+Decrypting payload................ [OK]
+
+>>> import subprocess, os, socket
+>>> def inject(pid):
+...     os.system(f"attach --pid={pid} --mode=silent")
+...
+Connecting to 10.0.0.7:8080 ... established
+Fetching exam_key.enc ... 24%
+Fetching exam_key.enc ... 61%
+[WARNING] unauthorized access detected on node 7
+Rerouting through proxy chain (3/5)...
+Fetching exam_key.enc ... 93%
+Fetching exam_key.enc ... 100%
+Decompressing............ done
+
+root@kernel:~# ./run --panic-mode --target=self
+Segmentation fault (core dumped)
+root@kernel:~# _`;
+
 const DODGE_WINDOW_MS = 8_000;
 const DODGE_THROTTLE_MS = 40;
+const DODGE_PROXIMITY = 100;
+const FAKE_CLICK_MIN = 4;
+const FAKE_CLICK_MAX = 5;
 
 function computeEndsAt(startedAt: string, durationMinutes: number): number {
   return new Date(startedAt).getTime() + durationMinutes * 60_000;
 }
 
-function clamp(n: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, n));
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export default function QuizRunner({
@@ -53,10 +84,12 @@ export default function QuizRunner({
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const [glitch, setGlitch] = useState<GlitchKind | null>(null);
   const [bsodPercent, setBsodPercent] = useState(0);
+  const [autocodeShown, setAutocodeShown] = useState(0);
   const [egg, setEgg] = useState<EasterEgg | null>(null);
   const [fullscreenEntered, setFullscreenEntered] = useState(false);
   const [fullscreenWarning, setFullscreenWarning] = useState(false);
-  const [dodgeOffsets, setDodgeOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [dodgePos, setDodgePos] = useState<Record<string, { x: number; y: number }>>({});
+  const [fakeClickError, setFakeClickError] = useState(false);
   const [, startTransition] = useTransition();
 
   const submittedRef = useRef(submitted);
@@ -65,6 +98,7 @@ export default function QuizRunner({
   const eggTriggersRef = useRef<number[]>([]);
   const eggOrderRef = useRef<EasterEgg[]>([]);
   const glitchTriggersRef = useRef<number[]>([]);
+  const glitchOrderRef = useRef<GlitchKind[]>([]);
   const eggFiredCountRef = useRef(0);
   const glitchFiredCountRef = useRef(0);
   const dodgeQuestionsRef = useRef<number[]>([]);
@@ -72,6 +106,11 @@ export default function QuizRunner({
   const dodgeStartedAtRef = useRef<Record<number, number>>({});
   const dodgeButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const dodgeLastMoveRef = useRef(0);
+  const fakeClickQuestionRef = useRef<number | null>(null);
+  const fakeClickRequiredRef = useRef(FAKE_CLICK_MIN);
+  const fakeClickCountRef = useRef(0);
+  const fakeClickAcceptedRef = useRef(false);
+  const autocodeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const phase: Phase = submitted || closedAt ? "closed" : startedAt ? "active" : "waiting";
 
@@ -127,10 +166,12 @@ export default function QuizRunner({
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, [phase, fullscreenEntered]);
 
-  // Decide *which answered-question counts* trigger an easter egg or a
-  // glitch, plus which 2 questions get the dodge-the-cursor prank -- all
-  // decided once, when the quiz goes active. Question-based, not
-  // wall-clock-based, so nothing can get skipped by finishing early/fast.
+  // Decide the whole run's chaos plan once, when the quiz goes active:
+  // which answered-counts trigger an egg, which trigger a glitch (each of
+  // the 5 kinds shown at most once, order shuffled), and which 2 questions
+  // get the dodge-the-cursor prank (one of which also gets the fake
+  // "click again" error). Question-based, not wall-clock-based, so nothing
+  // can get skipped by finishing early/fast.
   useEffect(() => {
     if (phase !== "active" || !fullscreenEntered || scheduledRef.current) return;
     scheduledRef.current = true;
@@ -144,17 +185,17 @@ export default function QuizRunner({
         picks.add(3 + Math.floor(Math.random() * (totalQ - 5)));
       }
       eggTriggersRef.current = [...picks].sort((a, b) => a - b);
-      // Shuffle once so each trigger shows a different egg -- no repeats until all are seen.
-      eggOrderRef.current = [...easterEggs].sort(() => Math.random() - 0.5).slice(0, eggCount);
+      eggOrderRef.current = shuffleArray(easterEggs).slice(0, eggCount);
     }
 
     const glitchTriggers: number[] = [];
     let cursor = 4 + Math.floor(Math.random() * 3); // first one after 4-6 answers
-    while (cursor < totalQ - 1) {
+    while (cursor < totalQ - 1 && glitchTriggers.length < ALL_GLITCH_KINDS.length) {
       glitchTriggers.push(cursor);
       cursor += 5 + Math.floor(Math.random() * 2); // then roughly every 5-6
     }
     glitchTriggersRef.current = glitchTriggers;
+    glitchOrderRef.current = shuffleArray(ALL_GLITCH_KINDS).slice(0, glitchTriggers.length);
 
     if (totalQ > 10) {
       const dodgePicks = new Set<number>();
@@ -163,6 +204,8 @@ export default function QuizRunner({
       }
       dodgeQuestionsRef.current = [...dodgePicks];
       for (const q of dodgeQuestionsRef.current) dodgeArmedRef.current[q] = true;
+      fakeClickQuestionRef.current = dodgeQuestionsRef.current[0];
+      fakeClickRequiredRef.current = FAKE_CLICK_MIN + Math.floor(Math.random() * (FAKE_CLICK_MAX - FAKE_CLICK_MIN + 1));
     }
   }, [phase, fullscreenEntered, questions, easterEggs]);
 
@@ -184,25 +227,42 @@ export default function QuizRunner({
       glitchFiredCountRef.current < glitchTriggersRef.current.length &&
       answeredCount >= glitchTriggersRef.current[glitchFiredCountRef.current]
     ) {
-      const kind = GLITCH_KINDS[Math.floor(Math.random() * GLITCH_KINDS.length)];
+      const kind = glitchOrderRef.current[glitchFiredCountRef.current];
       setGlitch(kind);
+
       if (kind === "bsod") {
         setBsodPercent(0);
         let pct = 0;
-        const bsodTimer = setInterval(() => {
+        const t = setInterval(() => {
           pct = Math.min(100, pct + 3 + Math.floor(Math.random() * 9));
           setBsodPercent(pct);
-          if (pct >= 100) clearInterval(bsodTimer);
+          if (pct >= 100) clearInterval(t);
         }, 350);
       }
-      setTimeout(() => setGlitch(null), GLITCH_DURATION_MS[kind]);
+
+      if (kind === "autocode") {
+        setAutocodeShown(0);
+        if (autocodeTimerRef.current) clearInterval(autocodeTimerRef.current);
+        autocodeTimerRef.current = setInterval(() => {
+          setAutocodeShown((prev) => Math.min(AUTOCODE_SCRIPT.length, prev + 3));
+        }, 18);
+      }
+
+      setTimeout(() => {
+        setGlitch(null);
+        if (kind === "autocode" && autocodeTimerRef.current) {
+          clearInterval(autocodeTimerRef.current);
+          autocodeTimerRef.current = null;
+        }
+      }, GLITCH_DURATION_MS[kind]);
       glitchFiredCountRef.current += 1;
     }
   }, [answers, phase, fullscreenEntered]);
 
   // Dodge-the-cursor prank: on the 2 chosen questions, option buttons jump
-  // away from the mouse for up to 8s (from the first time the cursor gets
-  // close), then settle so the question stays answerable.
+  // to a random spot anywhere on screen the moment the cursor gets close --
+  // for up to 8s from the first time that happens, then they settle so the
+  // question stays answerable.
   useEffect(() => {
     if (phase !== "active" || !fullscreenEntered || dodgeQuestionsRef.current.length === 0) return;
 
@@ -222,20 +282,20 @@ export default function QuizRunner({
           const cx = rect.left + rect.width / 2;
           const cy = rect.top + rect.height / 2;
           const dist = Math.hypot(e.clientX - cx, e.clientY - cy);
-          if (dist >= DODGE_RADIUS) continue;
+          if (dist >= DODGE_PROXIMITY) continue;
 
           if (!dodgeStartedAtRef.current[qNum]) dodgeStartedAtRef.current[qNum] = now;
-          const angle = Math.atan2(cy - e.clientY, cx - e.clientX);
-          const mag = 55 + Math.random() * 55;
-          setDodgeOffsets((prev) => ({
-            ...prev,
-            [key]: { x: clamp(Math.cos(angle) * mag, -110, 110), y: clamp(Math.sin(angle) * mag, -50, 50) },
-          }));
+          const margin = 24;
+          const btnW = Math.max(rect.width, 200);
+          const btnH = Math.max(rect.height, 44);
+          const nx = margin + Math.random() * Math.max(window.innerWidth - btnW - margin * 2, 10);
+          const ny = margin + 60 + Math.random() * Math.max(window.innerHeight - btnH - margin * 2 - 60, 10);
+          setDodgePos((prev) => ({ ...prev, [key]: { x: nx, y: ny } }));
         }
 
         if (dodgeStartedAtRef.current[qNum] && now - dodgeStartedAtRef.current[qNum] > DODGE_WINDOW_MS) {
           dodgeArmedRef.current[qNum] = false;
-          setDodgeOffsets((prev) => {
+          setDodgePos((prev) => {
             const next = { ...prev };
             for (const opt of ["A", "B", "C", "D"]) delete next[`${qNum}-${opt}`];
             return next;
@@ -247,6 +307,19 @@ export default function QuizRunner({
     window.addEventListener("mousemove", handleMove);
     return () => window.removeEventListener("mousemove", handleMove);
   }, [phase, fullscreenEntered]);
+
+  function handleOptionClick(questionNumber: number, option: Option) {
+    if (questionNumber === fakeClickQuestionRef.current && !fakeClickAcceptedRef.current) {
+      fakeClickCountRef.current += 1;
+      if (fakeClickCountRef.current < fakeClickRequiredRef.current) {
+        setFakeClickError(true);
+        setTimeout(() => setFakeClickError(false), 1100);
+        return;
+      }
+      fakeClickAcceptedRef.current = true;
+    }
+    handleSelect(questionNumber, option);
+  }
 
   function handleSelect(questionNumber: number, option: Option) {
     setAnswers((prev) => ({ ...prev, [questionNumber]: option }));
@@ -349,6 +422,14 @@ export default function QuizRunner({
         </div>
       )}
 
+      {fakeClickError && (
+        <div className="pointer-events-none fixed inset-x-0 top-24 z-[70] flex justify-center">
+          <p className="glitch-shake border border-magenta/70 bg-void px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-magenta text-glow-magenta">
+            ⚠ Selection failed — click again
+          </p>
+        </div>
+      )}
+
       {glitch === "bsod" && (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-[#0078d7] px-6 text-white">
           <p className="text-8xl font-light">:(</p>
@@ -402,6 +483,15 @@ export default function QuizRunner({
         </div>
       )}
 
+      {glitch === "autocode" && (
+        <div className="fixed inset-0 z-[60] overflow-hidden bg-black p-6">
+          <pre className="h-full overflow-hidden whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-[#39ff6a]">
+            {AUTOCODE_SCRIPT.slice(0, autocodeShown)}
+            <span className="caret">_</span>
+          </pre>
+        </div>
+      )}
+
       {egg && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-void/95 p-6"
@@ -439,29 +529,28 @@ export default function QuizRunner({
               </p>
               <p className="mt-2 font-body text-sm text-fog whitespace-pre-line">{q.questionText}</p>
               <div className="mt-3 flex flex-col gap-2">
-                {([
-                  ["A", q.optionA],
-                  ["B", q.optionB],
-                  ["C", q.optionC],
-                  ["D", q.optionD],
-                ] as [Option, string][]).map(([opt, text]) => {
-                  const dodgeKey = `${q.questionNumber}-${opt}`;
-                  const offset = dodgeOffsets[dodgeKey];
+                {q.options.map((option) => {
+                  const dodgeKey = `${q.questionNumber}-${option.letter}`;
+                  const pos = dodgePos[dodgeKey];
                   return (
                     <button
-                      key={opt}
+                      key={option.letter}
                       ref={(el) => {
                         dodgeButtonRefs.current[dodgeKey] = el;
                       }}
-                      onClick={() => handleSelect(q.questionNumber, opt)}
-                      style={offset ? { transform: `translate(${offset.x}px, ${offset.y}px)`, transition: "transform 0.12s ease-out" } : undefined}
-                      className={`relative border px-3 py-2 text-left font-body text-sm transition-colors ${
-                        answers[q.questionNumber] === opt
+                      onClick={() => handleOptionClick(q.questionNumber, option.letter)}
+                      style={
+                        pos
+                          ? { position: "fixed", left: pos.x, top: pos.y, zIndex: 45, width: 240, transition: "left 0.12s ease-out, top 0.12s ease-out" }
+                          : undefined
+                      }
+                      className={`relative border bg-void px-3 py-2 text-left font-body text-sm transition-colors ${
+                        answers[q.questionNumber] === option.letter
                           ? "border-cyan bg-cyan/10 text-cyan"
                           : "border-panel-line text-fog hover:border-cyan/50"
                       }`}
                     >
-                      <span className="font-mono-fx text-xs text-fog-dim">{opt}.</span> {text}
+                      <span className="font-mono-fx text-xs text-fog-dim">{option.letter}.</span> {option.text}
                     </button>
                   );
                 })}

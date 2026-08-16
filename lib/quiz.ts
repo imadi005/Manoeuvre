@@ -1,15 +1,50 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export interface QuizOption {
+  letter: "A" | "B" | "C" | "D";
+  text: string;
+}
+
 export interface QuizQuestion {
   id: string;
   questionNumber: number;
   sectionLabel: string | null;
   questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
+  /** Already shuffled, per-student -- the letter is always the true/original
+   * one (what gets saved), only display order/position varies. */
+  options: QuizOption[];
+}
+
+/** Deterministic per-student shuffle -- same student always sees the same
+ * order on every load/resume, but different students see different orders. */
+function seedFromString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return function () {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(arr: T[], rand: () => number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export interface QuizState {
@@ -47,7 +82,10 @@ export async function getQuizState(eventSlug: string): Promise<QuizState> {
   };
 }
 
-export async function getQuizQuestions(eventSlug: string): Promise<QuizQuestion[]> {
+/** Question order AND each question's option order are shuffled per-student
+ * (deterministically, so it's stable across reloads) -- so no two students
+ * can just call out "answer to Q5 is C" to each other. */
+export async function getQuizQuestions(eventSlug: string, studentId: string): Promise<QuizQuestion[]> {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("quiz_questions")
@@ -55,16 +93,28 @@ export async function getQuizQuestions(eventSlug: string): Promise<QuizQuestion[
     .eq("event_slug", eventSlug)
     .order("question_number");
 
-  return (data ?? []).map((q) => ({
-    id: q.id,
-    questionNumber: q.question_number,
-    sectionLabel: q.section_label,
-    questionText: q.question_text,
-    optionA: q.option_a,
-    optionB: q.option_b,
-    optionC: q.option_c,
-    optionD: q.option_d,
-  }));
+  const rand = mulberry32(seedFromString(`${eventSlug}:${studentId}`));
+
+  const questions = seededShuffle(data ?? [], rand).map((q) => {
+    const options: QuizOption[] = seededShuffle(
+      [
+        { letter: "A" as const, text: q.option_a },
+        { letter: "B" as const, text: q.option_b },
+        { letter: "C" as const, text: q.option_c },
+        { letter: "D" as const, text: q.option_d },
+      ],
+      rand
+    );
+    return {
+      id: q.id,
+      questionNumber: q.question_number,
+      sectionLabel: q.section_label,
+      questionText: q.question_text,
+      options,
+    };
+  });
+
+  return questions;
 }
 
 /** questionNumber -> selected option, for resuming after a refresh. */
