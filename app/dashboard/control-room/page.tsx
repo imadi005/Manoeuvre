@@ -18,7 +18,7 @@ export default async function ControlRoomDashboard() {
   const { data: resultRows } = await supabase
     .from("event_results")
     .select(
-      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
+      "id, event_slug, sub_event, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
     )
     .eq("status", "faculty_approved");
 
@@ -35,7 +35,11 @@ export default async function ControlRoomDashboard() {
 
   const toSummary = (r: NonNullable<typeof resultRows>[number]) => ({
     id: r.id,
-    eventName: events.find((e) => e.slug === r.event_slug)?.name ?? r.event_slug,
+    eventName: (() => {
+      const event = events.find((e) => e.slug === r.event_slug);
+      const subLabel = event?.subEvents?.find((se) => se.key === r.sub_event)?.label;
+      return `${event?.name ?? r.event_slug}${subLabel ? ` — ${subLabel}` : ""}`;
+    })(),
     first: r.first_faction_id ? (factionNameById.get(r.first_faction_id) ?? null) : null,
     second: r.second_faction_id ? (factionNameById.get(r.second_faction_id) ?? null) : null,
     third: r.third_faction_id ? (factionNameById.get(r.third_faction_id) ?? null) : null,

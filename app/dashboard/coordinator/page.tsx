@@ -28,10 +28,10 @@ export default async function CoordinatorDashboard() {
   const { data: allResults } = await supabase
     .from("event_results")
     .select(
-      "id, event_slug, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
+      "id, event_slug, sub_event, status, first_faction_id, second_faction_id, third_faction_id, notes, submitted_by, faculty_approved_by"
     );
 
-  const { data: attendanceRows } = await supabase.from("event_attendance").select("event_slug, faction_id");
+  const { data: attendanceRows } = await supabase.from("event_attendance").select("event_slug, faction_id, sub_event");
 
   const published = (allResults ?? []).filter((r) => r.status === "published");
   const totalsById = mergeFactionTotals(computeFactionTotals(published), computeParticipationTotals(attendanceRows ?? []));
@@ -53,7 +53,12 @@ export default async function CoordinatorDashboard() {
   for (const r of registrationRows ?? []) {
     regCountByEvent.set(r.event_slug, (regCountByEvent.get(r.event_slug) ?? 0) + 1);
   }
-  const resultByEvent = new Map((allResults ?? []).map((r) => [r.event_slug, r.status]));
+  // Most events have one event_results row; The Grid has two (BGMI + PES), so track every distinct status per event.
+  const resultByEvent = new Map<string, Set<string>>();
+  for (const r of allResults ?? []) {
+    if (!resultByEvent.has(r.event_slug)) resultByEvent.set(r.event_slug, new Set());
+    resultByEvent.get(r.event_slug)!.add(r.status);
+  }
 
   const { data: organizerRows } = await supabase.from("organizers").select("role");
   const orgCountByRole = new Map<string, number>();
@@ -73,7 +78,11 @@ export default async function CoordinatorDashboard() {
 
   const toSummary = (r: NonNullable<typeof allResults>[number]) => ({
     id: r.id,
-    eventName: events.find((e) => e.slug === r.event_slug)?.name ?? r.event_slug,
+    eventName: (() => {
+      const event = events.find((e) => e.slug === r.event_slug);
+      const subLabel = event?.subEvents?.find((se) => se.key === r.sub_event)?.label;
+      return `${event?.name ?? r.event_slug}${subLabel ? ` — ${subLabel}` : ""}`;
+    })(),
     first: r.first_faction_id ? (factionNameById.get(r.first_faction_id) ?? null) : null,
     second: r.second_faction_id ? (factionNameById.get(r.second_faction_id) ?? null) : null,
     third: r.third_faction_id ? (factionNameById.get(r.third_faction_id) ?? null) : null,
@@ -172,13 +181,21 @@ export default async function CoordinatorDashboard() {
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {events.map((e) => {
-                const status = resultByEvent.get(e.slug) ?? "no result";
+                const statuses = [...(resultByEvent.get(e.slug) ?? [])];
+                const status = statuses.length === 0 ? "no result" : statuses.join(", ");
+                const worst = statuses.includes("faculty_rejected") || statuses.includes("control_rejected")
+                  ? "rejected"
+                  : statuses.length === 0
+                    ? "none"
+                    : statuses.every((s) => s === "published")
+                      ? "published"
+                      : "in_progress";
                 const statusColor =
-                  status === "published"
+                  worst === "published"
                     ? "text-cyan"
-                    : status === "submitted" || status === "faculty_approved" || status === "control_verified"
+                    : worst === "in_progress"
                       ? "text-yellow"
-                      : status === "faculty_rejected" || status === "control_rejected"
+                      : worst === "rejected"
                         ? "text-magenta"
                         : "text-fog-dim";
                 return (

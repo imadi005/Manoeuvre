@@ -19,7 +19,7 @@ export default async function DocumentationDashboard() {
 
   const { data: resultRows } = await supabase
     .from("event_results")
-    .select("event_slug, status, first_faction_id, second_faction_id, third_faction_id");
+    .select("event_slug, sub_event, status, first_faction_id, second_faction_id, third_faction_id");
 
   const { data: factionRows } = await supabase.from("factions").select("id, name");
   const factionNameById = new Map((factionRows ?? []).map((f) => [f.id, f.name]));
@@ -53,23 +53,34 @@ export default async function DocumentationDashboard() {
     .select("event_slug, summary, objectives, outcome, feedback, web_url, highlights, issues, status, rejection_reason, updated_at");
   const reportByEvent = new Map((reportRows ?? []).map((r) => [r.event_slug, r]));
 
-  const resultByEvent = new Map((resultRows ?? []).map((r) => [r.event_slug, r]));
+  // Most events have one event_results row; The Grid has two (BGMI + PES).
+  const resultsByEvent = new Map<string, NonNullable<typeof resultRows>>();
+  for (const r of resultRows ?? []) {
+    if (!resultsByEvent.has(r.event_slug)) resultsByEvent.set(r.event_slug, []);
+    resultsByEvent.get(r.event_slug)!.push(r);
+  }
 
   const reports = events.map((e) => {
-    const result = resultByEvent.get(e.slug);
-    const closed = result?.status === "published";
+    const results = resultsByEvent.get(e.slug) ?? [];
+    const closed = results.length > 0 && results.every((r) => r.status === "published");
     const placements = closed
-      ? ([
-          ["winner", result!.first_faction_id],
-          ["runner_up", result!.second_faction_id],
-          ["third", result!.third_faction_id],
-        ] as const)
-          .filter(([, id]) => id)
-          .map(([tier, id]) => ({
-            tier,
-            faction: factionNameById.get(id as string) ?? "—",
-            points: pointsForPlacement(e.slug, tier),
-          }))
+      ? results.flatMap((result) => {
+          const subLabel = e.subEvents?.find((se) => se.key === result.sub_event)?.label ?? null;
+          return (
+            [
+              ["winner", result.first_faction_id],
+              ["runner_up", result.second_faction_id],
+              ["third", result.third_faction_id],
+            ] as const
+          )
+            .filter(([, id]) => id)
+            .map(([tier, id]) => ({
+              tier,
+              subLabel,
+              faction: factionNameById.get(id as string) ?? "—",
+              points: pointsForPlacement(e.slug, tier, result.sub_event),
+            }));
+        })
       : [];
 
     return {
@@ -147,9 +158,10 @@ export default async function DocumentationDashboard() {
                     </div>
 
                     <div className="mt-4 flex flex-col gap-1.5">
-                      {r.placements.map((p) => (
-                        <p key={p.tier} className="font-mono-fx text-xs text-fog">
+                      {r.placements.map((p, i) => (
+                        <p key={`${p.subLabel ?? ""}-${p.tier}-${i}`} className="font-mono-fx text-xs text-fog">
                           <span className="text-fog-dim">
+                            {p.subLabel && `${p.subLabel} — `}
                             {p.tier === "winner" ? "Winner" : p.tier === "runner_up" ? "Runner-Up" : "3rd"}
                           </span>{" "}
                           — {p.faction} (+{p.points})

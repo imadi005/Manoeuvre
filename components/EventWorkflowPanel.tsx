@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import { markPresent, startEvent, setRoundStatus, closeRound, completeEvent } from "@/app/dashboard/event-lead/actions";
 import type { RosterTeam, RosterIndividual, RoundResultsByRound, RoundStatus } from "@/lib/eventRoster";
+import type { FestEvent } from "@/lib/data";
 
 interface Unit {
   type: "team" | "student";
   id: string;
   name: string;
   factionName: string;
+  subEventKey: string;
   members: { name: string; rollNumber: string }[];
 }
 
@@ -27,6 +29,7 @@ function unitsFrom(teams: RosterTeam[], individuals: RosterIndividual[]): Unit[]
       id: t.id,
       name: t.name,
       factionName: t.factionName,
+      subEventKey: t.subEventKey || "",
       members: t.members.map((m) => ({ name: m.name, rollNumber: m.rollNumber })),
     }));
   }
@@ -35,6 +38,7 @@ function unitsFrom(teams: RosterTeam[], individuals: RosterIndividual[]): Unit[]
     id: i.studentId,
     name: i.name,
     factionName: i.factionName,
+    subEventKey: "",
     members: [],
   }));
 }
@@ -69,27 +73,28 @@ function UnitCard({ unit, footer }: { unit: Unit; footer: React.ReactNode }) {
 }
 
 export default function EventWorkflowPanel({
-  totalRounds,
+  event,
   teams,
   individuals,
   roundResults,
   presentUnitIds,
   currentRound,
   completedAt,
-  resultStatus,
+  resultStatusBySubEvent,
 }: {
-  totalRounds: number;
+  event: FestEvent;
   teams: RosterTeam[];
   individuals: RosterIndividual[];
   roundResults: RoundResultsByRound;
   presentUnitIds: Set<string>;
   currentRound: number;
   completedAt: string | null;
-  resultStatus: string | null;
+  resultStatusBySubEvent: Record<string, string>;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const totalRounds = event.rounds;
   const units = unitsFrom(teams, individuals);
 
   if (units.length === 0) {
@@ -115,6 +120,57 @@ export default function EventWorkflowPanel({
   const unitsInCurrentRound = units.filter((u) =>
     currentRound === 1 ? presentUnitIds.has(u.id) : previousRoundResults?.[u.id] === "advanced"
   );
+
+  // The Grid: BGMI and PES are independent competitions, split for display + final placement.
+  const subEventGroups = event.subEvents ?? [{ key: "", label: "" }];
+
+  function finalPlacementCard(u: Unit) {
+    const status = roundResults[currentRound]?.[u.id] as RoundStatus | undefined;
+    const finalOptions: RoundStatus[] = ["winner", "runner_up", "third"];
+    return (
+      <UnitCard
+        key={u.id}
+        unit={u}
+        footer={
+          <div className="flex flex-wrap gap-1.5">
+            {finalOptions.map((tier) => (
+              <button
+                key={tier}
+                onClick={() => run(() => setRoundStatus(currentRound, u.type, u.id, status === tier ? null : tier))}
+                disabled={isPending}
+                className={`border px-2.5 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
+                  status === tier ? "border-yellow bg-yellow text-void" : "border-panel-line text-fog-dim hover:text-fog"
+                }`}
+              >
+                {tier === "winner" ? "Winner" : tier === "runner_up" ? "Runner-Up" : "3rd Position"}
+              </button>
+            ))}
+          </div>
+        }
+      />
+    );
+  }
+
+  function advanceCard(u: Unit) {
+    const status = roundResults[currentRound]?.[u.id] as RoundStatus | undefined;
+    return (
+      <UnitCard
+        key={u.id}
+        unit={u}
+        footer={
+          <button
+            onClick={() => run(() => setRoundStatus(currentRound, u.type, u.id, status === "advanced" ? null : "advanced"))}
+            disabled={isPending}
+            className={`border px-3 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
+              status === "advanced" ? "border-yellow bg-yellow text-void" : "border-panel-line text-fog-dim hover:text-fog"
+            }`}
+          >
+            Advance
+          </button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -171,26 +227,36 @@ export default function EventWorkflowPanel({
       )}
 
       {completedAt ? (
-        <div className="border border-cyan/40 bg-panel/40 p-5">
-          <p className="font-mono-fx text-xs uppercase tracking-[0.35em] text-cyan text-glow-cyan">// Event Completed</p>
-          <div className="mt-3 flex flex-col gap-1.5">
-            {(["winner", "runner_up", "third"] as const).map((tier) => {
-              const unitId = Object.entries(roundResults[totalRounds] ?? {}).find(([, s]) => s === tier)?.[0];
-              const unit = units.find((u) => u.id === unitId);
-              const label = tier === "winner" ? "Winner" : tier === "runner_up" ? "Runner-Up" : "3rd Position";
-              return (
-                <p key={tier} className="font-body text-sm text-fog">
-                  <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{label}</span>{" "}
-                  {unit ? `${unit.name} (${unit.factionName})` : "—"}
+        <div className="flex flex-col gap-4">
+          {subEventGroups.map((se) => {
+            const finalResults = roundResults[totalRounds] ?? {};
+            const unitsHere = se.key ? units.filter((u) => u.subEventKey === se.key) : units;
+            return (
+              <div key={se.key} className="border border-cyan/40 bg-panel/40 p-5">
+                <p className="font-mono-fx text-xs uppercase tracking-[0.35em] text-cyan text-glow-cyan">
+                  // Event Completed{se.label ? ` — ${se.label}` : ""}
                 </p>
-              );
-            })}
-          </div>
-          {resultStatus && (
-            <p className="mt-3 font-mono-fx text-[10px] uppercase tracking-widest text-yellow">
-              {RESULT_STATUS_LABEL[resultStatus] ?? resultStatus}
-            </p>
-          )}
+                <div className="mt-3 flex flex-col gap-1.5">
+                  {(["winner", "runner_up", "third"] as const).map((tier) => {
+                    const unitId = Object.entries(finalResults).find(([id, s]) => s === tier && unitsHere.some((u) => u.id === id))?.[0];
+                    const unit = units.find((u) => u.id === unitId);
+                    const label = tier === "winner" ? "Winner" : tier === "runner_up" ? "Runner-Up" : "3rd Position";
+                    return (
+                      <p key={tier} className="font-body text-sm text-fog">
+                        <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{label}</span>{" "}
+                        {unit ? `${unit.name} (${unit.factionName})` : "—"}
+                      </p>
+                    );
+                  })}
+                </div>
+                {resultStatusBySubEvent[se.key] && (
+                  <p className="mt-3 font-mono-fx text-[10px] uppercase tracking-widest text-yellow">
+                    {RESULT_STATUS_LABEL[resultStatusBySubEvent[se.key]] ?? resultStatusBySubEvent[se.key]}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         currentRound >= 1 && (
@@ -201,46 +267,25 @@ export default function EventWorkflowPanel({
             </p>
             {unitsInCurrentRound.length === 0 ? (
               <p className="font-body text-sm text-fog-dim">Nobody advanced into this round yet.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {unitsInCurrentRound.map((u) => {
-                  const status = roundResults[currentRound]?.[u.id] as RoundStatus | undefined;
-                  const finalOptions: RoundStatus[] = ["winner", "runner_up", "third"];
+            ) : isFinalRound && event.subEvents ? (
+              <div className="flex flex-col gap-6">
+                {event.subEvents.map((se) => {
+                  const unitsHere = unitsInCurrentRound.filter((u) => u.subEventKey === se.key);
                   return (
-                    <UnitCard
-                      key={u.id}
-                      unit={u}
-                      footer={
-                        isFinalRound ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {finalOptions.map((tier) => (
-                              <button
-                                key={tier}
-                                onClick={() => run(() => setRoundStatus(currentRound, u.type, u.id, status === tier ? null : tier))}
-                                disabled={isPending}
-                                className={`border px-2.5 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
-                                  status === tier ? "border-yellow bg-yellow text-void" : "border-panel-line text-fog-dim hover:text-fog"
-                                }`}
-                              >
-                                {tier === "winner" ? "Winner" : tier === "runner_up" ? "Runner-Up" : "3rd Position"}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => run(() => setRoundStatus(currentRound, u.type, u.id, status === "advanced" ? null : "advanced"))}
-                            disabled={isPending}
-                            className={`border px-3 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
-                              status === "advanced" ? "border-yellow bg-yellow text-void" : "border-panel-line text-fog-dim hover:text-fog"
-                            }`}
-                          >
-                            Advance
-                          </button>
-                        )
-                      }
-                    />
+                    <div key={se.key}>
+                      <p className="mb-2 font-mono-fx text-[11px] uppercase tracking-widest text-cyan">{se.label}</p>
+                      {unitsHere.length === 0 ? (
+                        <p className="font-body text-xs text-fog-dim">Nobody advanced into this round yet.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{unitsHere.map(finalPlacementCard)}</div>
+                      )}
+                    </div>
                   );
                 })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {unitsInCurrentRound.map((u) => (isFinalRound ? finalPlacementCard(u) : advanceCard(u)))}
               </div>
             )}
 

@@ -16,9 +16,11 @@ export default async function EventLeadDashboard() {
   const event = events.find((e) => e.slug === session.detail);
 
   const supabase = createAdminClient();
-  const { data: existingResult } = session.detail
-    ? await supabase.from("event_results").select("status").eq("event_slug", session.detail).maybeSingle()
-    : { data: null };
+  const { data: existingResults } = session.detail
+    ? await supabase.from("event_results").select("sub_event, status").eq("event_slug", session.detail)
+    : { data: [] };
+  // Most events have one result row; The Grid has two (BGMI + PES).
+  const resultStatusBySubEvent = new Map((existingResults ?? []).map((r) => [r.sub_event || "", r.status]));
 
   const { teams, individuals, roundResults, presentUnitIds } = session.detail
     ? await getEventRoster(session.detail)
@@ -45,14 +47,14 @@ export default async function EventLeadDashboard() {
           {event && (
             <div className="mt-10">
               <EventWorkflowPanel
-                totalRounds={event.rounds}
+                event={event}
                 teams={teams}
                 individuals={individuals}
                 roundResults={roundResults}
                 presentUnitIds={presentUnitIds}
                 currentRound={progress.currentRound}
                 completedAt={progress.completedAt}
-                resultStatus={existingResult?.status ?? null}
+                resultStatusBySubEvent={Object.fromEntries(resultStatusBySubEvent)}
               />
             </div>
           )}

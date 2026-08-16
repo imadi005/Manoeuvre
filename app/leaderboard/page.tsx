@@ -13,10 +13,10 @@ export default async function LeaderboardPage() {
   const supabase = createAdminClient();
   const { data: verified } = await supabase
     .from("event_results")
-    .select("event_slug, first_faction_id, second_faction_id, third_faction_id")
+    .select("event_slug, sub_event, first_faction_id, second_faction_id, third_faction_id")
     .eq("status", "published");
 
-  const { data: attendance } = await supabase.from("event_attendance").select("event_slug, faction_id");
+  const { data: attendance } = await supabase.from("event_attendance").select("event_slug, faction_id, sub_event");
 
   // Need faction DB ids to match against event_results (which store uuid, not slug).
   const { data: factionRows } = await supabase.from("factions").select("id, slug");
@@ -102,6 +102,7 @@ export default async function LeaderboardPage() {
               <div className="mt-4 flex flex-col gap-2">
                 {(verified ?? []).map((r) => {
                   const event = events.find((e) => e.slug === r.event_slug);
+                  const subEventLabel = event?.subEvents?.find((se) => se.key === r.sub_event)?.label;
                   const placementText = (
                     factionId: string | null,
                     tier: "winner" | "runner_up" | "third"
@@ -109,17 +110,18 @@ export default async function LeaderboardPage() {
                     if (!factionId) return null;
                     const slug = slugById.get(factionId);
                     const faction = factions.find((f) => f.slug === slug);
-                    const pts = pointsForPlacement(r.event_slug, tier);
+                    const pts = pointsForPlacement(r.event_slug, tier, r.sub_event);
                     return faction ? `${faction.name} (+${pts})` : null;
                   };
                   return (
                     <Link
-                      key={r.event_slug}
+                      key={`${r.event_slug}-${r.sub_event}`}
                       href={`/events/${r.event_slug}`}
                       className="border border-panel-line bg-panel/30 p-4 transition-colors hover:border-cyan"
                     >
                       <p className="font-display text-sm font-bold uppercase text-fog">
                         {event?.name ?? r.event_slug}
+                        {subEventLabel && <span className="ml-2 text-fog-dim">— {subEventLabel}</span>}
                       </p>
                       <p className="mt-1 font-mono-fx text-xs text-fog-dim">
                         {[

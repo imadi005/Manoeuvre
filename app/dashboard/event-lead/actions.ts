@@ -18,16 +18,21 @@ async function authorizedEvent() {
   return { event, eventSlug: session.detail, organizerId: session.id };
 }
 
-async function unitFactionId(
+interface UnitInfo {
+  factionId: string;
+  subEvent: string; // '' for events without subEvents (e.g. The Grid's bgmi/pes)
+}
+
+async function unitInfo(
   supabase: ReturnType<typeof createAdminClient>,
   unitType: UnitType,
   unitId: string,
   eventSlug: string
-): Promise<string | null> {
+): Promise<UnitInfo | null> {
   if (unitType === "team") {
-    const { data } = await supabase.from("event_teams").select("faction_id, event_slug").eq("id", unitId).maybeSingle();
+    const { data } = await supabase.from("event_teams").select("faction_id, sub_event, event_slug").eq("id", unitId).maybeSingle();
     if (!data || data.event_slug !== eventSlug) return null;
-    return data.faction_id;
+    return { factionId: data.faction_id, subEvent: data.sub_event ?? "" };
   }
   const { data } = await supabase
     .from("event_registrations")
@@ -35,7 +40,8 @@ async function unitFactionId(
     .eq("student_id", unitId)
     .eq("event_slug", eventSlug)
     .maybeSingle();
-  return data?.faction_id ?? null;
+  if (!data) return null;
+  return { factionId: data.faction_id, subEvent: "" };
 }
 
 /** Attendance -- marking present is what grants the immediate Participation point (via lib/scoring.ts reading event_attendance directly). Idempotent. */
@@ -45,8 +51,8 @@ export async function markPresent(unitType: UnitType, unitId: string): Promise<A
   const { eventSlug, organizerId } = ctx;
 
   const supabase = createAdminClient();
-  const factionId = await unitFactionId(supabase, unitType, unitId, eventSlug);
-  if (!factionId) return { error: "Invalid team/student for this event." };
+  const info = await unitInfo(supabase, unitType, unitId, eventSlug);
+  if (!info) return { error: "Invalid team/student for this event." };
 
   const { data: existing } = await supabase
     .from("event_attendance")
@@ -60,7 +66,8 @@ export async function markPresent(unitType: UnitType, unitId: string): Promise<A
     event_slug: eventSlug,
     team_id: unitType === "team" ? unitId : null,
     student_id: unitType === "student" ? unitId : null,
-    faction_id: factionId,
+    faction_id: info.factionId,
+    sub_event: info.subEvent,
     marked_by: organizerId,
   });
   if (error) return { error: "Something went wrong. Try again." };
@@ -238,7 +245,7 @@ export async function closeRound(roundNumber: number): Promise<ActionResult> {
   return { error: null };
 }
 
-/** Final round is complete: resolves Winner/Runner-up/3rd into their factions, auto-submits the result into the existing faculty-approval pipeline, and marks the event finished. */
+/** Final round is complete: resolves Winner/Runner-up/3rd into their factions, auto-submits the result into the existing faculty-approval pipeline, and marks the event finished. For events with subEvents (The Grid's BGMI/PES), each sub-event gets its own placement + its own event_results row, and each must have a Winner before anything is written. */
 export async function completeEvent(): Promise<ActionResult> {
   const ctx = await authorizedEvent();
   if (!ctx) return { error: "Not authorized." };
@@ -263,49 +270,76 @@ export async function completeEvent(): Promise<ActionResult> {
     .eq("round_number", event.rounds)
     .in("status", ["winner", "runner_up", "third"]);
 
-  const byTier = (tier: RoundStatus) => (finalRows ?? []).find((r) => r.status === tier);
-  const winner = byTier("winner");
-  if (!winner) return { error: "Mark a Winner before completing the event." };
-  const runnerUp = byTier("runner_up");
-  const third = byTier("third");
+  const rows = finalRows ?? [];
+  const unitKey = (r: { team_id: string | null; student_id: string | null }) => (r.team_id ?? r.student_id)!;
 
-  const factionFor = async (row: { team_id: string | null; student_id: string | null } | undefined) => {
-    if (!row) return null;
-    return unitFactionId(supabase, row.team_id ? "team" : "student", (row.team_id ?? row.student_id)!, eventSlug);
-  };
+  const infoByUnit = new Map<string, UnitInfo>();
+  await Promise.all(
+    rows.map(async (r) => {
+      const info = await unitInfo(supabase, r.team_id ? "team" : "student", unitKey(r), eventSlug);
+      if (info) infoByUnit.set(unitKey(r), info);
+    })
+  );
 
-  const [firstFactionId, secondFactionId, thirdFactionId] = await Promise.all([
-    factionFor(winner),
-    factionFor(runnerUp),
-    factionFor(third),
-  ]);
+  const subEventKeys: (string | null)[] = event.subEvents ? event.subEvents.map((s) => s.key) : [null];
 
-  const { data: existingResult } = await supabase
-    .from("event_results")
-    .select("id")
-    .eq("event_slug", eventSlug)
-    .maybeSingle();
+  const resolved: {
+    subEventKey: string | null;
+    firstFactionId: string | null;
+    secondFactionId: string | null;
+    thirdFactionId: string | null;
+  }[] = [];
 
-  const payload = {
-    event_slug: eventSlug,
-    first_faction_id: firstFactionId,
-    second_faction_id: secondFactionId,
-    third_faction_id: thirdFactionId,
-    notes: "Auto-submitted from the round tracker.",
-    status: "submitted" as const,
-    submitted_by: organizerId,
-    faculty_approved_by: null,
-    faculty_approved_at: null,
-    control_verified_by: null,
-    control_verified_at: null,
-    rejection_reason: null,
-    updated_at: new Date().toISOString(),
-  };
+  for (const subEventKey of subEventKeys) {
+    const rowsHere = subEventKey ? rows.filter((r) => infoByUnit.get(unitKey(r))?.subEvent === subEventKey) : rows;
+    const byTier = (tier: RoundStatus) => rowsHere.find((r) => r.status === tier);
 
-  const { error: resultError } = existingResult
-    ? await supabase.from("event_results").update(payload).eq("id", existingResult.id)
-    : await supabase.from("event_results").insert(payload);
-  if (resultError) return { error: "Something went wrong submitting the result. Try again." };
+    const winner = byTier("winner");
+    if (!winner) {
+      const label = subEventKey ? event.subEvents!.find((s) => s.key === subEventKey)!.label : null;
+      return { error: label ? `Mark a Winner for ${label} before completing the event.` : "Mark a Winner before completing the event." };
+    }
+    const runnerUp = byTier("runner_up");
+    const third = byTier("third");
+
+    resolved.push({
+      subEventKey,
+      firstFactionId: infoByUnit.get(unitKey(winner))?.factionId ?? null,
+      secondFactionId: runnerUp ? (infoByUnit.get(unitKey(runnerUp))?.factionId ?? null) : null,
+      thirdFactionId: third ? (infoByUnit.get(unitKey(third))?.factionId ?? null) : null,
+    });
+  }
+
+  for (const r of resolved) {
+    const { data: existingResult } = await supabase
+      .from("event_results")
+      .select("id")
+      .eq("event_slug", eventSlug)
+      .eq("sub_event", r.subEventKey ?? "")
+      .maybeSingle();
+
+    const payload = {
+      event_slug: eventSlug,
+      sub_event: r.subEventKey ?? "",
+      first_faction_id: r.firstFactionId,
+      second_faction_id: r.secondFactionId,
+      third_faction_id: r.thirdFactionId,
+      notes: "Auto-submitted from the round tracker.",
+      status: "submitted" as const,
+      submitted_by: organizerId,
+      faculty_approved_by: null,
+      faculty_approved_at: null,
+      control_verified_by: null,
+      control_verified_at: null,
+      rejection_reason: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: resultError } = existingResult
+      ? await supabase.from("event_results").update(payload).eq("id", existingResult.id)
+      : await supabase.from("event_results").insert(payload);
+    if (resultError) return { error: "Something went wrong submitting the result. Try again." };
+  }
 
   const { error: progressError } = await supabase
     .from("event_progress")
