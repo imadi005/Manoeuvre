@@ -83,7 +83,7 @@ export async function createTeam(eventSlug: string, subEventKey?: string): Promi
   return { error: null, teamId: team.id };
 }
 
-export async function addRegistration(studentId: string, eventSlug: string, teamId?: string): Promise<ActionResult> {
+export async function addRegistration(studentId: string, eventSlug: string, teamId?: string, isSubstitute?: boolean): Promise<ActionResult> {
   const session = await getSession();
   if (!session || session.role !== "faction_head") return { error: "Not authorized." };
 
@@ -92,6 +92,10 @@ export async function addRegistration(studentId: string, eventSlug: string, team
 
   const usesTeams = !!event.teamConfig || !!event.subEvents;
   if (usesTeams && !teamId) return { error: "Select or start a team first." };
+
+  if (isSubstitute && !event.subEvents) {
+    return { error: "Substitute registration is only available for gaming events." };
+  }
 
   if (isRegistrationLocked(eventSlug)) {
     return { error: `Registration for ${event.name} closed 24h before it started — no further changes allowed. Contact Ops for emergencies.` };
@@ -110,23 +114,29 @@ export async function addRegistration(studentId: string, eventSlug: string, team
 
   const { data: studentRegs } = await supabase
     .from("event_registrations")
-    .select("event_slug")
+    .select("event_slug, is_substitute")
     .eq("student_id", studentId);
-  const currentSlugs = (studentRegs ?? []).map((r) => r.event_slug);
+  const allSlugs = (studentRegs ?? []).map((r) => r.event_slug);
+  // Substitute registrations don't count toward the conflict check — a
+  // gaming sub can still be added to other events, and being marked a
+  // substitute themselves skips the check entirely.
+  const nonSubSlugs = (studentRegs ?? []).filter((r) => !r.is_substitute).map((r) => r.event_slug);
 
-  if (currentSlugs.includes(eventSlug)) return { error: "Already registered for this event." };
+  if (allSlugs.includes(eventSlug)) return { error: "Already registered for this event." };
 
-  const conflictSlug = findConflict(eventSlug, currentSlugs);
-  if (conflictSlug) {
-    const conflictName = events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug;
-    await supabase.from("conflict_attempts").insert({
-      student_id: studentId,
-      faction_id: session.factionId,
-      attempted_event_slug: eventSlug,
-      conflicting_event_slug: conflictSlug,
-      attempted_by: session.id,
-    });
-    return { error: `Not allowed — already in ${conflictName}, which can't be combined with ${event.name}.` };
+  if (!isSubstitute) {
+    const conflictSlug = findConflict(eventSlug, nonSubSlugs);
+    if (conflictSlug) {
+      const conflictName = events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug;
+      await supabase.from("conflict_attempts").insert({
+        student_id: studentId,
+        faction_id: session.factionId,
+        attempted_event_slug: eventSlug,
+        conflicting_event_slug: conflictSlug,
+        attempted_by: session.id,
+      });
+      return { error: `Not allowed — already in ${conflictName}, which can't be combined with ${event.name}.` };
+    }
   }
 
   let teamDbId: string | null = null;
@@ -173,6 +183,7 @@ export async function addRegistration(studentId: string, eventSlug: string, team
     event_slug: eventSlug,
     registered_by: session.id,
     team_id: teamDbId,
+    is_substitute: !!isSubstitute,
   });
   if (error) return { error: "Something went wrong. Try again." };
 

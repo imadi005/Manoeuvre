@@ -167,7 +167,7 @@ export default async function EventPage({
                         <div key={t.id}>
                           <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{t.name}</p>
                           <p className="font-body text-xs text-fog">
-                            {t.members.map((m) => `${m.name} (${m.rollNumber})`).join(", ")}
+                            {t.members.map((m) => `${m.name} (${m.rollNumber})${m.isSubstitute ? " (Sub)" : ""}`).join(", ")}
                           </p>
                         </div>
                       ))}

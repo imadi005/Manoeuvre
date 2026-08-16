@@ -29,10 +29,10 @@ export default function EventRegistrationPanel({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleAdd(studentId: string, teamId?: string) {
+  function handleAdd(studentId: string, teamId?: string, isSubstitute?: boolean) {
     setError(null);
     startTransition(async () => {
-      const result = await addRegistration(studentId, event.slug, teamId);
+      const result = await addRegistration(studentId, event.slug, teamId, isSubstitute);
       if (result.error) setError(result.error);
     });
   }
@@ -128,7 +128,7 @@ function TeamGroup({
   teams: TeamData[];
   students: StudentInfo[];
   eventSlug: string;
-  onAdd: (studentId: string, teamId?: string) => void;
+  onAdd: (studentId: string, teamId?: string, isSubstitute?: boolean) => void;
   onRemove: (registrationId: string) => void;
   onCreateTeam: (subEventKey?: string) => void;
   disabled: boolean;
@@ -162,6 +162,9 @@ function TeamGroup({
                 <div key={m.id} className="flex items-center justify-between gap-2 border border-panel-line/60 bg-void px-3 py-2">
                   <span className="font-body text-sm text-fog">
                     {m.name} <span className="font-mono-fx text-xs text-fog-dim">· {m.rollNumber}</span>
+                    {m.isSubstitute && (
+                      <span className="ml-2 font-mono-fx text-[10px] uppercase tracking-widest text-yellow">(Sub)</span>
+                    )}
                   </span>
                   <button
                     onClick={() => onRemove(m.id)}
@@ -182,6 +185,7 @@ function TeamGroup({
                   students={students}
                   onAdd={onAdd}
                   disabled={disabled}
+                  allowSubstitute={!!subEventKey}
                 />
               </div>
             )}
@@ -209,28 +213,46 @@ function StudentPickerFor({
   students,
   onAdd,
   disabled,
+  allowSubstitute,
 }: {
   eventSlug: string;
   teamId: string;
   excludeIds: Set<string>;
   students: StudentInfo[];
-  onAdd: (studentId: string, teamId?: string) => void;
+  onAdd: (studentId: string, teamId?: string, isSubstitute?: boolean) => void;
   disabled: boolean;
+  allowSubstitute: boolean;
 }) {
+  const [isSubstitute, setIsSubstitute] = useState(false);
+
   const candidates = students
     .filter((s) => !excludeIds.has(s.id))
     .map((s) => {
-      const conflictSlug = findConflict(eventSlug, s.eventSlugs);
+      // A substitute add skips the schedule-conflict check entirely.
+      const conflictSlug = isSubstitute ? null : findConflict(eventSlug, s.eventSlugs);
       const conflictName = conflictSlug ? (events.find((e) => e.slug === conflictSlug)?.name ?? conflictSlug) : null;
       return { id: s.id, name: s.name, rollNumber: s.rollNumber, eventCount: s.eventCount, conflictName };
     });
 
   return (
-    <StudentSearchPicker
-      candidates={candidates}
-      onPick={(studentId) => onAdd(studentId, teamId)}
-      disabled={disabled}
-    />
+    <div>
+      {allowSubstitute && (
+        <label className="mb-2 flex items-center gap-2 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+          <input
+            type="checkbox"
+            checked={isSubstitute}
+            onChange={(e) => setIsSubstitute(e.target.checked)}
+            disabled={disabled}
+          />
+          Register as substitute (exempt from schedule clash)
+        </label>
+      )}
+      <StudentSearchPicker
+        candidates={candidates}
+        onPick={(studentId) => onAdd(studentId, teamId, isSubstitute)}
+        disabled={disabled}
+      />
+    </div>
   );
 }
 

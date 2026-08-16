@@ -6,6 +6,7 @@ export interface RosterMember {
   studentId: string;
   name: string;
   rollNumber: string;
+  isSubstitute: boolean;
 }
 
 export interface RosterTeam {
@@ -70,7 +71,7 @@ export async function getEventRoster(eventSlug: string): Promise<{
 
   const { data: regRows } = await supabase
     .from("event_registrations")
-    .select("id, student_id, team_id, faction_id, students(name, roll_number)")
+    .select("id, student_id, team_id, faction_id, is_substitute, students(name, roll_number)")
     .eq("event_slug", eventSlug);
 
   type RegRow = {
@@ -78,6 +79,7 @@ export async function getEventRoster(eventSlug: string): Promise<{
     student_id: string;
     team_id: string | null;
     faction_id: string;
+    is_substitute: boolean;
     students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
   };
   const regs = (regRows ?? []) as unknown as RegRow[];
@@ -93,6 +95,7 @@ export async function getEventRoster(eventSlug: string): Promise<{
         studentId: r.student_id,
         name: info?.name ?? "—",
         rollNumber: info?.roll_number ?? "—",
+        isSubstitute: r.is_substitute,
       });
     } else {
       individuals.push({

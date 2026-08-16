@@ -11,7 +11,7 @@ interface Unit {
   name: string;
   factionName: string;
   subEventKey: string;
-  members: { name: string; rollNumber: string }[];
+  members: { name: string; rollNumber: string; isSubstitute: boolean }[];
 }
 
 const RESULT_STATUS_LABEL: Record<string, string> = {
@@ -30,7 +30,7 @@ function unitsFrom(teams: RosterTeam[], individuals: RosterIndividual[]): Unit[]
       name: t.name,
       factionName: t.factionName,
       subEventKey: t.subEventKey || "",
-      members: t.members.map((m) => ({ name: m.name, rollNumber: m.rollNumber })),
+      members: t.members.map((m) => ({ name: m.name, rollNumber: m.rollNumber, isSubstitute: m.isSubstitute })),
     }));
   }
   return individuals.map((i) => ({
@@ -62,6 +62,7 @@ function UnitCard({ unit, footer }: { unit: Unit; footer: React.ReactNode }) {
             {unit.members.map((m, i) => (
               <li key={i} className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
                 {m.name} <span className="opacity-70">({m.rollNumber})</span>
+                {m.isSubstitute && <span className="ml-1.5 text-yellow">(SUB)</span>}
               </li>
             ))}
           </ul>
