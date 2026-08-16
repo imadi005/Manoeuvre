@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getQuizState, getQuizQuestions, getStudentAnswers, getStudentSubmission, getEasterEggs } from "@/lib/quiz";
+import { getQuizState, getQuizQuestions, getStudentAnswers, getStudentSubmission, getEasterEggs, isMarkedPresent } from "@/lib/quiz";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import QuizRunner from "@/components/QuizRunner";
@@ -39,13 +39,35 @@ export default async function BlacktieQuizPage() {
     );
   }
 
-  const [state, questions, answers, submission, easterEggs] = await Promise.all([
+  const [state, questions, answers, submission, easterEggs, present] = await Promise.all([
     getQuizState(EVENT_SLUG),
     getQuizQuestions(EVENT_SLUG),
     getStudentAnswers(EVENT_SLUG, session.id),
     getStudentSubmission(EVENT_SLUG, session.id),
     getEasterEggs(EVENT_SLUG),
+    isMarkedPresent(EVENT_SLUG, session.id),
   ]);
+
+  if (!present && !submission) {
+    return (
+      <>
+        <Navbar />
+        <main className="scanlines relative min-h-screen bg-void px-5 pb-24 pt-32">
+          <div className="grid-bg pointer-events-none absolute inset-0" />
+          <div className="relative mx-auto max-w-xl text-center">
+            <p className="font-mono-fx text-xs uppercase tracking-[0.4em] text-yellow text-glow-yellow">// Attendance Pending</p>
+            <h1 className="font-display mt-3 text-2xl font-bold uppercase text-fog">
+              Wait for your event lead to mark you present.
+            </h1>
+            <p className="mt-3 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
+              The quiz opens up right after attendance — check back once you've been marked in.
+            </p>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>

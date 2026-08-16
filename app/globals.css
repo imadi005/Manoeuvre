@@ -240,6 +240,31 @@ body {
   animation: glitch-shake 0.15s infinite;
 }
 
+/* Hard black-out flicker -- screen "dies" then snaps back. Purely visual. */
+@keyframes glitch-blackout-flash {
+  0% { opacity: 0; }
+  6% { opacity: 1; }
+  9% { opacity: 0.6; }
+  12% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.glitch-blackout {
+  animation: glitch-blackout-flash 0.5s ease-in-out forwards;
+}
+
+/* Slow dying-signal fade, rises then falls over its lifetime. */
+@keyframes glitch-fade-pulse {
+  0% { opacity: 0; }
+  55% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+.glitch-fade {
+  animation: glitch-fade-pulse 2.6s ease-in-out forwards;
+}
+
 /* Blinking cursor / flicker */
 @keyframes flicker {
   0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }

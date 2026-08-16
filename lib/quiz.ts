@@ -109,3 +109,57 @@ export async function getSubmissionCount(eventSlug: string): Promise<number> {
     .eq("event_slug", eventSlug);
   return count ?? 0;
 }
+
+/** True once the event lead has marked this student present -- the quiz only opens up after attendance. */
+export async function isMarkedPresent(eventSlug: string, studentId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("event_attendance")
+    .select("id")
+    .eq("event_slug", eventSlug)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return !!data;
+}
+
+export interface FullscreenViolation {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  count: number;
+  lastAt: string;
+}
+
+/** Per-student fullscreen-exit counts, most recent first -- polled live by the event lead while the quiz is running. */
+export async function getFullscreenViolations(eventSlug: string): Promise<FullscreenViolation[]> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("quiz_fullscreen_violations")
+    .select("student_id, occurred_at, students(name, roll_number)")
+    .eq("event_slug", eventSlug)
+    .order("occurred_at", { ascending: false });
+
+  type Row = {
+    student_id: string;
+    occurred_at: string;
+    students: { name: string; roll_number: string } | { name: string; roll_number: string }[] | null;
+  };
+
+  const byStudent = new Map<string, FullscreenViolation>();
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const existing = byStudent.get(r.student_id);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    const s = Array.isArray(r.students) ? r.students[0] : r.students;
+    byStudent.set(r.student_id, {
+      studentId: r.student_id,
+      studentName: s?.name ?? "—",
+      rollNumber: s?.roll_number ?? "—",
+      count: 1,
+      lastAt: r.occurred_at,
+    });
+  }
+  return [...byStudent.values()].sort((a, b) => b.count - a.count);
+}

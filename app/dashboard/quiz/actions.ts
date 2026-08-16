@@ -87,6 +87,20 @@ export async function saveAnswer(questionNumber: number, selectedOption: Option)
   return { error: null };
 }
 
+/** Logged every time the student's browser exits fullscreen while the quiz is live -- surfaced to the event lead. */
+export async function reportFullscreenExit(): Promise<ActionResult> {
+  const ctx = await authorizedStudent();
+  if (!ctx) return { error: "Not authorized." };
+  const { studentId, supabase } = ctx;
+
+  const { error } = await supabase.from("quiz_fullscreen_violations").insert({
+    event_slug: EVENT_SLUG,
+    student_id: studentId,
+  });
+  if (error) return { error: "Couldn't log that. Try again." };
+  return { error: null };
+}
+
 /** Called by the Submit button, and automatically by the client when the countdown hits zero. Idempotent. */
 export async function submitQuiz(): Promise<ActionResult> {
   const ctx = await authorizedStudent();

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, useActionState, useRef } from "react";
-import { startQuiz, endQuizNow, uploadEasterEgg, autoAdvanceTopScorers } from "@/app/dashboard/event-lead/quizActions";
+import { useEffect, useState, useTransition } from "react";
+import { startQuiz, endQuizNow, autoAdvanceTopScorers, getQuizLiveStatus, type QuizLiveStatus } from "@/app/dashboard/event-lead/quizActions";
 
 export default function QuizControlPanel({
   startedAt,
@@ -19,6 +19,22 @@ export default function QuizControlPanel({
   const [duration, setDuration] = useState(40);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [live, setLive] = useState<QuizLiveStatus | null>(null);
+
+  const effectiveStartedAt = live?.startedAt ?? startedAt;
+  const effectiveClosedAt = live?.closedAt ?? closedAt;
+  const effectiveSubmittedCount = live?.submittedCount ?? submittedCount;
+  const violations = live?.violations ?? [];
+
+  // Poll live status while the quiz is running -- submitted count + fullscreen-exit violations, per student.
+  useEffect(() => {
+    if (!effectiveStartedAt) return;
+    const id = setInterval(async () => {
+      const status = await getQuizLiveStatus();
+      if (status) setLive(status);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [effectiveStartedAt]);
 
   function run(action: () => Promise<{ error: string | null }>) {
     setError(null);
@@ -41,7 +57,7 @@ export default function QuizControlPanel({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        {!startedAt ? (
+        {!effectiveStartedAt ? (
           <>
             <label className="flex items-center gap-2 font-mono-fx text-xs uppercase tracking-widest text-fog-dim">
               Duration (min)
@@ -62,12 +78,12 @@ export default function QuizControlPanel({
               Start Quiz
             </button>
           </>
-        ) : closedAt ? (
+        ) : effectiveClosedAt ? (
           <span className="font-mono-fx text-xs uppercase tracking-widest text-cyan">Quiz closed</span>
         ) : (
           <>
             <span className="font-mono-fx text-xs uppercase tracking-widest text-cyan">
-              Live — {submittedCount}/{totalRegistered} submitted
+              Live — {effectiveSubmittedCount}/{totalRegistered} submitted
             </span>
             <button
               onClick={() => run(endQuizNow)}
@@ -80,7 +96,27 @@ export default function QuizControlPanel({
         )}
       </div>
 
-      {closedAt && (
+      {effectiveStartedAt && !effectiveClosedAt && (
+        <div className="mt-4 border-t border-panel-line/60 pt-4">
+          <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+            // Fullscreen Violations {violations.length > 0 && <span className="text-magenta">({violations.length} student{violations.length === 1 ? "" : "s"})</span>}
+          </p>
+          {violations.length === 0 ? (
+            <p className="mt-2 font-body text-xs text-fog-dim">None yet — everyone's staying in the exam view.</p>
+          ) : (
+            <div className="mt-2 flex flex-col gap-1">
+              {violations.map((v) => (
+                <p key={v.studentId} className="font-mono-fx text-[10px] uppercase tracking-widest text-fog">
+                  {v.studentName} <span className="text-fog-dim">({v.rollNumber})</span>{" "}
+                  <span className="text-magenta">— exited {v.count}×</span>
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {effectiveClosedAt && (
         <div className="mt-4">
           <button
             onClick={() => run(() => autoAdvanceTopScorers(16))}
@@ -95,47 +131,9 @@ export default function QuizControlPanel({
         </div>
       )}
 
-      <EasterEggUpload count={easterEggCount} />
-    </div>
-  );
-}
-
-function EasterEggUpload({ count }: { count: number }) {
-  const [state, formAction, pending] = useActionState(uploadEasterEgg, { error: null });
-  const formRef = useRef<HTMLFormElement>(null);
-
-  return (
-    <div className="mt-5 border-t border-panel-line/60 pt-4">
-      <p className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
-        Easter-egg images/GIFs — {count} uploaded
+      <p className="mt-5 border-t border-panel-line/60 pt-4 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+        Easter-egg images/GIFs — {easterEggCount} loaded
       </p>
-      <form
-        ref={formRef}
-        action={(fd) => {
-          formAction(fd);
-          formRef.current?.reset();
-        }}
-        className="mt-2 flex flex-wrap items-center gap-2"
-      >
-        <input
-          type="file"
-          name="file"
-          accept="image/*"
-          required
-          disabled={pending}
-          className="border border-panel-line bg-void px-2 py-1.5 font-mono-fx text-xs text-fog file:mr-2 file:border-0 file:bg-cyan file:px-2 file:py-1 file:font-mono-fx file:text-[10px] file:uppercase file:text-void disabled:opacity-40"
-        />
-        <button
-          type="submit"
-          disabled={pending}
-          className="border border-cyan/60 px-3 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void disabled:opacity-40"
-        >
-          {pending ? "Uploading..." : "Upload"}
-        </button>
-      </form>
-      {state.error && (
-        <p className="mt-2 font-mono-fx text-[10px] uppercase tracking-wide text-magenta">⚠ {state.error}</p>
-      )}
     </div>
   );
 }

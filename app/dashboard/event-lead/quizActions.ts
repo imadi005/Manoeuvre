@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSession } from "@/lib/auth/session";
+import { getQuizState, getSubmissionCount, getFullscreenViolations, type FullscreenViolation } from "@/lib/quiz";
 import { setRoundStatus } from "./actions";
 
 const EVENT_SLUG = "blacktie-protocol";
@@ -13,6 +14,27 @@ async function authorizedLead() {
   const session = await getSession();
   if (!session || session.role !== "event_lead" || session.detail !== EVENT_SLUG) return null;
   return { organizerId: session.id, supabase: createAdminClient() };
+}
+
+export interface QuizLiveStatus {
+  startedAt: string | null;
+  closedAt: string | null;
+  submittedCount: number;
+  violations: FullscreenViolation[];
+}
+
+/** Polled every few seconds from the event-lead's quiz control panel. */
+export async function getQuizLiveStatus(): Promise<QuizLiveStatus | null> {
+  const ctx = await authorizedLead();
+  if (!ctx) return null;
+
+  const [state, submittedCount, violations] = await Promise.all([
+    getQuizState(EVENT_SLUG),
+    getSubmissionCount(EVENT_SLUG),
+    getFullscreenViolations(EVENT_SLUG),
+  ]);
+
+  return { startedAt: state.startedAt, closedAt: state.closedAt, submittedCount, violations };
 }
 
 export async function startQuiz(durationMinutes: number): Promise<ActionResult> {
@@ -40,38 +62,6 @@ export async function endQuizNow(): Promise<ActionResult> {
   if (!ctx) return { error: "Not authorized." };
 
   const { error } = await ctx.supabase.from("quiz_state").update({ closed_at: new Date().toISOString() }).eq("event_slug", EVENT_SLUG);
-  if (error) return { error: "Something went wrong. Try again." };
-
-  revalidatePath("/dashboard/event-lead");
-  return { error: null };
-}
-
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
-
-export async function uploadEasterEgg(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
-  const ctx = await authorizedLead();
-  if (!ctx) return { error: "Not authorized." };
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose a file first." };
-  if (file.size > MAX_FILE_BYTES) return { error: "File is too large (max 15MB)." };
-  if (!file.type.startsWith("image/")) return { error: "Only images/GIFs are supported." };
-
-  const ext = file.name.split(".").pop() || "jpg";
-  const path = `${EVENT_SLUG}/${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await ctx.supabase.storage.from("quiz-easter-eggs").upload(path, buffer, {
-    contentType: file.type,
-    upsert: false,
-  });
-  if (uploadError) return { error: "Upload failed. Try again." };
-
-  const { error } = await ctx.supabase.from("quiz_easter_eggs").insert({
-    event_slug: EVENT_SLUG,
-    storage_path: path,
-    uploaded_by: ctx.organizerId,
-  });
   if (error) return { error: "Something went wrong. Try again." };
 
   revalidatePath("/dashboard/event-lead");
