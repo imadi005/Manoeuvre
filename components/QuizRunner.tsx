@@ -53,6 +53,10 @@ export default function QuizRunner({
   const submittedRef = useRef(submitted);
   submittedRef.current = submitted;
   const scheduledRef = useRef(false);
+  const eggTriggersRef = useRef<number[]>([]);
+  const glitchTriggersRef = useRef<number[]>([]);
+  const eggFiredCountRef = useRef(0);
+  const glitchFiredCountRef = useRef(0);
 
   const phase: Phase = submitted || closedAt ? "closed" : startedAt ? "active" : "waiting";
 
@@ -108,43 +112,59 @@ export default function QuizRunner({
     return () => document.removeEventListener("fullscreenchange", handleChange);
   }, [phase, fullscreenEntered]);
 
-  // Schedule easter eggs + glitches once, when the quiz goes active.
+  // Decide *which answered-question counts* trigger an easter egg or a
+  // glitch, once, when the quiz goes active -- question-based, not
+  // wall-clock-based, so it can't get skipped by finishing early/fast.
   useEffect(() => {
     if (phase !== "active" || !fullscreenEntered || scheduledRef.current) return;
     scheduledRef.current = true;
 
-    const windowMs = durationMinutes * 60_000;
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    const totalQ = questions.length;
 
-    if (easterEggs.length > 0) {
+    if (easterEggs.length > 0 && totalQ > 5) {
       const eggCount = Math.min(5, easterEggs.length);
-      for (let i = 0; i < eggCount; i++) {
-        const delay = 20_000 + Math.random() * Math.max(windowMs - 40_000, 10_000);
-        timers.push(
-          setTimeout(() => {
-            const pick = easterEggs[Math.floor(Math.random() * easterEggs.length)];
-            setEgg(pick);
-          }, delay)
-        );
+      const picks = new Set<number>();
+      while (picks.size < eggCount) {
+        picks.add(3 + Math.floor(Math.random() * (totalQ - 5)));
       }
+      eggTriggersRef.current = [...picks].sort((a, b) => a - b);
     }
 
-    const glitchCount = 3 + Math.floor(Math.random() * 3); // 3-5, mixed types
-    for (let i = 0; i < glitchCount; i++) {
-      const delay = 15_000 + Math.random() * Math.max(windowMs - 30_000, 10_000);
-      timers.push(
-        setTimeout(() => {
-          const kind = GLITCH_KINDS[Math.floor(Math.random() * GLITCH_KINDS.length)];
-          const message = GLITCH_MESSAGES[Math.floor(Math.random() * GLITCH_MESSAGES.length)];
-          setGlitch({ kind, message });
-          const duration = kind === "fade" ? 2600 : kind === "hang" ? 2500 + Math.random() * 2000 : 3000 + Math.random() * 3000;
-          setTimeout(() => setGlitch(null), duration);
-        }, delay)
-      );
+    const glitchTriggers: number[] = [];
+    let cursor = 4 + Math.floor(Math.random() * 3); // first one after 4-6 answers
+    while (cursor < totalQ - 1) {
+      glitchTriggers.push(cursor);
+      cursor += 5 + Math.floor(Math.random() * 2); // then roughly every 5-6
+    }
+    glitchTriggersRef.current = glitchTriggers;
+  }, [phase, fullscreenEntered, questions.length, easterEggs]);
+
+  // Fire whichever thresholds the answered-count has now reached.
+  useEffect(() => {
+    if (phase !== "active" || !fullscreenEntered) return;
+    const answeredCount = Object.keys(answers).length;
+
+    while (
+      eggFiredCountRef.current < eggTriggersRef.current.length &&
+      answeredCount >= eggTriggersRef.current[eggFiredCountRef.current]
+    ) {
+      const pick = easterEggs[Math.floor(Math.random() * easterEggs.length)];
+      setEgg(pick);
+      eggFiredCountRef.current += 1;
     }
 
-    return () => timers.forEach(clearTimeout);
-  }, [phase, fullscreenEntered, durationMinutes, easterEggs]);
+    while (
+      glitchFiredCountRef.current < glitchTriggersRef.current.length &&
+      answeredCount >= glitchTriggersRef.current[glitchFiredCountRef.current]
+    ) {
+      const kind = GLITCH_KINDS[Math.floor(Math.random() * GLITCH_KINDS.length)];
+      const message = GLITCH_MESSAGES[Math.floor(Math.random() * GLITCH_MESSAGES.length)];
+      setGlitch({ kind, message });
+      const duration = kind === "fade" ? 2600 : kind === "hang" ? 2500 + Math.random() * 2000 : 3000 + Math.random() * 3000;
+      setTimeout(() => setGlitch(null), duration);
+      glitchFiredCountRef.current += 1;
+    }
+  }, [answers, phase, fullscreenEntered, easterEggs]);
 
   function handleSelect(questionNumber: number, option: Option) {
     setAnswers((prev) => ({ ...prev, [questionNumber]: option }));

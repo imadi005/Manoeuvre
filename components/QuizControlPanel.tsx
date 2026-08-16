@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { startQuiz, endQuizNow, autoAdvanceTopScorers, getQuizLiveStatus, type QuizLiveStatus } from "@/app/dashboard/event-lead/quizActions";
 
@@ -117,7 +118,7 @@ export default function QuizControlPanel({
       )}
 
       {effectiveClosedAt && (
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             onClick={() => run(() => autoAdvanceTopScorers(16))}
             disabled={isPending}
@@ -125,10 +126,18 @@ export default function QuizControlPanel({
           >
             Auto-Advance Top 16 Scorers
           </button>
-          <p className="mt-2 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
-            Pre-fills Round 1 Advance for the top 16 — adjust manually below if needed.
-          </p>
+          <Link
+            href="/dashboard/event-lead/quiz-scores"
+            className="border border-yellow/60 px-4 py-2 font-mono-fx text-xs uppercase tracking-widest text-yellow transition-colors hover:bg-yellow hover:text-void"
+          >
+            View Scorecard →
+          </Link>
         </div>
+      )}
+      {effectiveClosedAt && (
+        <p className="mt-2 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+          Auto-advance pre-fills Round 1 for the top 16 — adjust manually below if needed.
+        </p>
       )}
 
       <p className="mt-5 border-t border-panel-line/60 pt-4 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">

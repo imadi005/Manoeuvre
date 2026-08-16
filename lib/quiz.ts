@@ -101,6 +101,55 @@ export async function getEasterEggs(eventSlug: string): Promise<EasterEgg[]> {
   });
 }
 
+export interface ScorecardEntry {
+  studentId: string;
+  studentName: string;
+  rollNumber: string;
+  factionName: string;
+  score: number;
+  totalQuestions: number;
+  submittedAt: string;
+}
+
+/** Every submission, ranked by score (ties broken by earliest submission) -- for the event lead's post-quiz scorecard. */
+export async function getQuizScorecard(eventSlug: string): Promise<ScorecardEntry[]> {
+  const supabase = createAdminClient();
+
+  const [{ data: submissions }, { count: totalQuestions }] = await Promise.all([
+    supabase
+      .from("quiz_submissions")
+      .select("student_id, score, submitted_at, students(name, roll_number, factions(name))")
+      .eq("event_slug", eventSlug)
+      .order("score", { ascending: false })
+      .order("submitted_at", { ascending: true }),
+    supabase.from("quiz_questions").select("id", { count: "exact", head: true }).eq("event_slug", eventSlug),
+  ]);
+
+  type Row = {
+    student_id: string;
+    score: number;
+    submitted_at: string;
+    students:
+      | { name: string; roll_number: string; factions: { name: string } | { name: string }[] | null }
+      | { name: string; roll_number: string; factions: { name: string } | { name: string }[] | null }[]
+      | null;
+  };
+
+  return ((submissions ?? []) as unknown as Row[]).map((r) => {
+    const s = Array.isArray(r.students) ? r.students[0] : r.students;
+    const faction = s ? (Array.isArray(s.factions) ? s.factions[0] : s.factions) : null;
+    return {
+      studentId: r.student_id,
+      studentName: s?.name ?? "—",
+      rollNumber: s?.roll_number ?? "—",
+      factionName: faction?.name ?? "—",
+      score: r.score,
+      totalQuestions: totalQuestions ?? 40,
+      submittedAt: r.submitted_at,
+    };
+  });
+}
+
 export async function getSubmissionCount(eventSlug: string): Promise<number> {
   const supabase = createAdminClient();
   const { count } = await supabase
