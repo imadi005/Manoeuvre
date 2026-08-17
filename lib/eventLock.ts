@@ -3,8 +3,14 @@ import { firstRoundStartsAt } from "./schedule";
 
 const LOCK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** When registration for this event closes — 24h before its first round. Null if the event has no scheduled block yet. */
+/** Per-event manual overrides for the default 24h-before-first-round cutoff — coordinator requests to keep a specific event's registration open later than usual. */
+const REGISTRATION_LOCK_OVERRIDES: Record<string, string> = {
+  cyberpitch: "2026-08-18T00:00:00+05:30",
+};
+
+/** When registration for this event closes — 24h before its first round, unless overridden above. Null if the event has no scheduled block yet. */
 export function registrationLockTime(eventSlug: string): Date | null {
+  if (REGISTRATION_LOCK_OVERRIDES[eventSlug]) return new Date(REGISTRATION_LOCK_OVERRIDES[eventSlug]);
   const start = firstRoundStartsAt(eventSlug);
   if (!start) return null;
   return new Date(start.getTime() - LOCK_WINDOW_MS);
