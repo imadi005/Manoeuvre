@@ -24,9 +24,9 @@ export default async function EventLeadDashboard() {
   // Most events have one result row; The Grid has two (BGMI + PES).
   const resultStatusBySubEvent = new Map((existingResults ?? []).map((r) => [r.sub_event || "", r.status]));
 
-  const { teams, individuals, roundResults, presentUnitIds } = session.detail
+  const { teams, individuals, roundResults, presentUnitIds, presentMemberStudentIds } = session.detail
     ? await getEventRoster(session.detail)
-    : { teams: [], individuals: [], roundResults: {}, presentUnitIds: new Set<string>() };
+    : { teams: [], individuals: [], roundResults: {}, presentUnitIds: new Set<string>(), presentMemberStudentIds: new Set<string>() };
 
   const progress = session.detail ? await getEventProgress(session.detail) : { currentRound: 0, startedAt: null, completedAt: null };
 
@@ -71,6 +71,7 @@ export default async function EventLeadDashboard() {
                 individuals={individuals}
                 roundResults={roundResults}
                 presentUnitIds={presentUnitIds}
+                presentMemberStudentIds={presentMemberStudentIds}
                 currentRound={progress.currentRound}
                 completedAt={progress.completedAt}
                 resultStatusBySubEvent={Object.fromEntries(resultStatusBySubEvent)}

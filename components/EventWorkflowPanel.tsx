@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { markPresent, startEvent, setRoundStatus, closeRound, completeEvent } from "@/app/dashboard/event-lead/actions";
+import { markPresent, markMemberPresent, startEvent, setRoundStatus, closeRound, completeEvent } from "@/app/dashboard/event-lead/actions";
 import type { RosterTeam, RosterIndividual, RoundResultsByRound, RoundStatus } from "@/lib/eventRoster";
 import type { FestEvent } from "@/lib/data";
 
@@ -11,7 +11,7 @@ interface Unit {
   name: string;
   factionName: string;
   subEventKey: string;
-  members: { name: string; rollNumber: string; isSubstitute: boolean }[];
+  members: { studentId: string; name: string; rollNumber: string; isSubstitute: boolean }[];
 }
 
 const RESULT_STATUS_LABEL: Record<string, string> = {
@@ -30,7 +30,7 @@ function unitsFrom(teams: RosterTeam[], individuals: RosterIndividual[]): Unit[]
       name: t.name,
       factionName: t.factionName,
       subEventKey: t.subEventKey || "",
-      members: t.members.map((m) => ({ name: m.name, rollNumber: m.rollNumber, isSubstitute: m.isSubstitute })),
+      members: t.members.map((m) => ({ studentId: m.studentId, name: m.name, rollNumber: m.rollNumber, isSubstitute: m.isSubstitute })),
     }));
   }
   return individuals.map((i) => ({
@@ -52,19 +52,48 @@ function groupByFaction(units: Unit[]): { factionName: string; units: Unit[] }[]
   return [...byFaction.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([factionName, units]) => ({ factionName, units }));
 }
 
-function UnitCard({ unit, footer }: { unit: Unit; footer: React.ReactNode }) {
+function UnitCard({
+  unit,
+  footer,
+  memberAttendance,
+}: {
+  unit: Unit;
+  footer: React.ReactNode;
+  /** The Grid only: per-member presence toggles, shown next to each member's name. */
+  memberAttendance?: {
+    presentStudentIds: Set<string>;
+    isPending: boolean;
+    onToggle: (teamId: string, studentId: string) => void;
+  };
+}) {
   return (
     <div className="border border-panel-line bg-panel/40">
       <div className="border-b border-panel-line/60 px-3 py-2">
         <p className="font-body text-sm font-semibold text-fog">{unit.name}</p>
         {unit.members.length > 0 && (
-          <ul className="mt-1 flex flex-col gap-0.5">
-            {unit.members.map((m, i) => (
-              <li key={i} className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
-                {m.name} <span className="opacity-70">({m.rollNumber})</span>
-                {m.isSubstitute && <span className="ml-1.5 text-yellow">(SUB)</span>}
-              </li>
-            ))}
+          <ul className="mt-1 flex flex-col gap-1">
+            {unit.members.map((m, i) => {
+              const present = memberAttendance?.presentStudentIds.has(m.studentId);
+              return (
+                <li key={i} className="flex items-center justify-between gap-2 font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+                  <span>
+                    {m.name} <span className="opacity-70">({m.rollNumber})</span>
+                    {m.isSubstitute && <span className="ml-1.5 text-yellow">(SUB)</span>}
+                  </span>
+                  {memberAttendance && (
+                    <button
+                      onClick={() => memberAttendance.onToggle(unit.id, m.studentId)}
+                      disabled={memberAttendance.isPending}
+                      className={`shrink-0 border px-2 py-0.5 text-[9px] transition-colors disabled:opacity-40 ${
+                        present ? "border-cyan/60 text-cyan" : "border-panel-line text-fog-dim hover:text-fog"
+                      }`}
+                    >
+                      {present ? "✓ Present" : "Mark Present"}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -79,6 +108,7 @@ export default function EventWorkflowPanel({
   individuals,
   roundResults,
   presentUnitIds,
+  presentMemberStudentIds,
   currentRound,
   completedAt,
   resultStatusBySubEvent,
@@ -88,6 +118,7 @@ export default function EventWorkflowPanel({
   individuals: RosterIndividual[];
   roundResults: RoundResultsByRound;
   presentUnitIds: Set<string>;
+  presentMemberStudentIds: Set<string>;
   currentRound: number;
   completedAt: string | null;
   resultStatusBySubEvent: Record<string, string>;
@@ -195,6 +226,15 @@ export default function EventWorkflowPanel({
                     <UnitCard
                       key={u.id}
                       unit={u}
+                      memberAttendance={
+                        event.slug === "the-grid" && u.type === "team"
+                          ? {
+                              presentStudentIds: presentMemberStudentIds,
+                              isPending,
+                              onToggle: (teamId, studentId) => run(() => markMemberPresent(teamId, studentId)),
+                            }
+                          : undefined
+                      }
                       footer={
                         present ? (
                           <span className="font-mono-fx text-[10px] uppercase tracking-widest text-cyan">✓ Present</span>

@@ -57,6 +57,7 @@ export async function getEventRoster(eventSlug: string): Promise<{
   individuals: RosterIndividual[];
   roundResults: RoundResultsByRound;
   presentUnitIds: Set<string>;
+  presentMemberStudentIds: Set<string>;
 }> {
   const supabase = createAdminClient();
 
@@ -139,5 +140,12 @@ export async function getEventRoster(eventSlug: string): Promise<{
     if (unitId) presentUnitIds.add(unitId);
   }
 
-  return { teams, individuals, roundResults, presentUnitIds };
+  // The Grid only: per-member presence within a squad, purely informational.
+  const { data: memberAttendanceRows } = await supabase
+    .from("event_member_attendance")
+    .select("student_id")
+    .eq("event_slug", eventSlug);
+  const presentMemberStudentIds = new Set((memberAttendanceRows ?? []).map((r) => r.student_id));
+
+  return { teams, individuals, roundResults, presentUnitIds, presentMemberStudentIds };
 }

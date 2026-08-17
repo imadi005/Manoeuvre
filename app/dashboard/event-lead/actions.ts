@@ -78,6 +78,52 @@ export async function markPresent(unitType: UnitType, unitId: string): Promise<A
   return { error: null };
 }
 
+/** The Grid only: per-member presence within a squad, purely informational
+ * (doesn't touch event_attendance/scoring) -- lets the event lead see who on
+ * a BGMI/PES team actually showed up, for substitute-swap calls. Toggles. */
+export async function markMemberPresent(teamId: string, studentId: string): Promise<ActionResult> {
+  const ctx = await authorizedEvent();
+  if (!ctx) return { error: "Not authorized." };
+  const { event, eventSlug, organizerId } = ctx;
+  if (event.slug !== "the-grid") return { error: "Not available for this event." };
+
+  const supabase = createAdminClient();
+
+  const { data: team } = await supabase.from("event_teams").select("id, event_slug").eq("id", teamId).maybeSingle();
+  if (!team || team.event_slug !== eventSlug) return { error: "Invalid team." };
+
+  const { data: reg } = await supabase
+    .from("event_registrations")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("team_id", teamId)
+    .maybeSingle();
+  if (!reg) return { error: "That student isn't on this team." };
+
+  const { data: existing } = await supabase
+    .from("event_member_attendance")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase.from("event_member_attendance").delete().eq("id", existing.id);
+    if (error) return { error: "Something went wrong. Try again." };
+  } else {
+    const { error } = await supabase.from("event_member_attendance").insert({
+      event_slug: eventSlug,
+      team_id: teamId,
+      student_id: studentId,
+      marked_by: organizerId,
+    });
+    if (error) return { error: "Something went wrong. Try again." };
+  }
+
+  revalidatePath("/dashboard/event-lead");
+  return { error: null };
+}
+
 /** Moves the event out of the attendance phase into Round 1. */
 export async function startEvent(): Promise<ActionResult> {
   const ctx = await authorizedEvent();
