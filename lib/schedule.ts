@@ -72,9 +72,9 @@ export const onGroundWeek: ScheduleDay[] = [
     weekday: "Tuesday",
     window: "2:40 PM – 5:10 PM",
     blocks: [
-      { time: "2:40 – 3:40 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "Classroom A / Gaming venue", startsAt: "2026-08-18T14:40:00+05:30", endsAt: "2026-08-18T15:40:00+05:30" },
+      { time: "2:40 – 3:40 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "406 / 506 & 603", startsAt: "2026-08-18T14:40:00+05:30", endsAt: "2026-08-18T15:40:00+05:30" },
       { time: "3:40 – 3:45 PM", title: "Break", isBreak: true, startsAt: "2026-08-18T15:40:00+05:30", endsAt: "2026-08-18T15:45:00+05:30" },
-      { time: "3:45 – 5:10 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "Classroom C / Classroom B", startsAt: "2026-08-18T15:45:00+05:30", endsAt: "2026-08-18T17:10:00+05:30" },
+      { time: "3:45 – 5:10 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "B3 / 214", startsAt: "2026-08-18T15:45:00+05:30", endsAt: "2026-08-18T17:10:00+05:30" },
     ],
   },
   {
