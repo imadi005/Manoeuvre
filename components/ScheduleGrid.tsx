@@ -16,10 +16,20 @@ interface GridDay {
   weekday: string;
   blocks: ScheduleBlock[];
   isOff?: boolean;
+  /** A day with zero blocks because everything on it got postponed, not because it was always a rest day — gets a wink instead of a flat "Day off". */
+  postponedMessage?: string;
 }
 
 const gridDays: GridDay[] = [
-  ...onGroundWeek.map((d) => ({ date: d.date, weekday: d.weekday, blocks: d.blocks })),
+  ...onGroundWeek.map((d) => ({
+    date: d.date,
+    weekday: d.weekday,
+    blocks: d.blocks,
+    postponedMessage:
+      d.blocks.length === 0
+        ? "// BLACK DAY DECLARED\nDepartment Heads allegedly achieved enlightenment. Events relocated to 19/20 Aug while reality stabilizes."
+        : undefined,
+  })),
   { date: "23 Aug", weekday: "Sunday", blocks: [], isOff: true },
   { date: "24 Aug", weekday: "Monday", blocks: finaleSchedule },
 ];
@@ -153,6 +163,21 @@ function DesktopGrid() {
                 <p className="absolute inset-0 flex items-center justify-center px-1 text-center font-mono-fx text-[9px] uppercase text-fog-dim">
                   Day off
                 </p>
+              ) : day.postponedMessage ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-1.5 text-center">
+                  {day.postponedMessage.split("\n").map((line, i) => (
+                    <p
+                      key={i}
+                      className={
+                        i === 0
+                          ? "font-mono-fx text-[8px] font-bold uppercase tracking-widest text-magenta text-glow-magenta sm:text-[9px]"
+                          : "font-body text-[8px] leading-snug text-fog-dim sm:text-[9px]"
+                      }
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </div>
               ) : (
                 day.blocks.map((b, i) => <BlockContent key={i} b={b} />)
               )}

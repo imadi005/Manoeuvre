@@ -15,6 +15,8 @@ interface Tab {
   sub: string;
   blocks: ScheduleBlock[];
   accent: "cyan" | "yellow";
+  /** A day with zero blocks because everything on it got postponed, not because it was always empty — gets a wink instead of a blank panel. */
+  postponedMessage?: string;
 }
 
 const tabs: Tab[] = [
@@ -23,6 +25,10 @@ const tabs: Tab[] = [
     sub: d.date,
     blocks: d.blocks,
     accent: "cyan" as const,
+    postponedMessage:
+      d.blocks.length === 0
+        ? "// BLACK DAY DECLARED\nDepartment Heads allegedly achieved enlightenment. Events relocated to 19/20 Aug while reality stabilizes."
+        : undefined,
   })),
   { label: "Finale", sub: "24 Aug", blocks: finaleSchedule, accent: "yellow" as const },
 ];
@@ -80,7 +86,23 @@ export default function ScheduleTeaser() {
             transition={{ duration: 0.2 }}
             className="flex flex-col gap-3"
           >
-            {tab.blocks.map((b, i) => (
+            {tab.postponedMessage ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-center">
+                {tab.postponedMessage.split("\n").map((line, i) => (
+                  <p
+                    key={i}
+                    className={
+                      i === 0
+                        ? "font-mono-fx text-xs font-bold uppercase tracking-widest text-magenta text-glow-magenta"
+                        : "max-w-sm font-body text-sm text-fog-dim"
+                    }
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              tab.blocks.map((b, i) => (
               <div key={i} className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-4">
                 <span className={`w-40 flex-shrink-0 font-mono-fx text-xs ${accentClass}`}>{b.time}</span>
                 <span className={`font-body text-sm ${b.isBreak ? "italic text-fog-dim" : "text-fog"}`}>
@@ -112,7 +134,8 @@ export default function ScheduleTeaser() {
                   </span>
                 )}
               </div>
-            ))}
+              ))
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

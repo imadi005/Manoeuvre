@@ -90,8 +90,8 @@ export const onGroundWeek: ScheduleDay[] = [
       { time: "12:00 – 12:50 PM", title: "The Grid — Round 2", eventSlug: "the-grid", venue: "506 & 603", startsAt: "2026-08-19T12:00:00+05:30", endsAt: "2026-08-19T12:50:00+05:30" },
       { time: "1:40 – 2:40 PM", title: "CyberPitch — Round 1", eventSlug: "cyberpitch", venue: "214", startsAt: "2026-08-19T13:40:00+05:30", endsAt: "2026-08-19T14:40:00+05:30" },
       { time: "2:40 – 3:40 PM", title: "Mind Games — Round 2", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom A / B", startsAt: "2026-08-19T14:40:00+05:30", endsAt: "2026-08-19T15:40:00+05:30" },
-      { time: "3:40 – 4:00 PM", title: "Break", isBreak: true, startsAt: "2026-08-19T15:40:00+05:30", endsAt: "2026-08-19T16:00:00+05:30" },
-      { time: "4:00 – 5:10 PM", title: "Manhunt — Round 1", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom / Basketball Court", startsAt: "2026-08-19T16:00:00+05:30", endsAt: "2026-08-19T17:10:00+05:30" },
+      { time: "3:40 – 3:45 PM", title: "Break", isBreak: true, startsAt: "2026-08-19T15:40:00+05:30", endsAt: "2026-08-19T15:45:00+05:30" },
+      { time: "3:45 – 5:10 PM", title: "Manhunt — Round 1", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom / Basketball Court", startsAt: "2026-08-19T15:45:00+05:30", endsAt: "2026-08-19T17:10:00+05:30" },
     ],
   },
   {
