@@ -22,9 +22,16 @@
 // Manual timing swaps requested post-launch (each event keeps its own
 // round number and venue — only the clock slot moves, so the thematic
 // pairs above no longer hold cleanly on these three days):
-//   18 Aug — CyberPitch (R1) <-> The Grid (R2)
 //   22 Aug — CyberPitch (R2) <-> The Trace (R3)
 //   24 Aug — The Blacktie Protocol / "IT Manager" (R3) <-> CyberPitch (R3)
+//
+// 18 Aug postponement: every event originally slotted for 18 Aug moved —
+// Blacktie Protocol, The Grid, and CyberPitch now run sequentially on the
+// morning of 19 Aug (ahead of that day's original Mind Games / Manhunt
+// blocks, which are unchanged), and Blackout Build moved to 20 Aug. Each
+// keeps its own round number and venue; only the date/clock slot moves,
+// so 18 Aug is now empty and 19/20 Aug run longer than their original
+// weekday window.
 //
 // Fest-wide +40min push: every weekday block that used to start at 2:00 PM
 // now starts at 2:40 PM, end times pushed the same 40 minutes — durations
@@ -70,19 +77,18 @@ export const onGroundWeek: ScheduleDay[] = [
     dayLabel: "Day 2",
     date: "18 Aug",
     weekday: "Tuesday",
-    window: "2:40 PM – 5:10 PM",
-    blocks: [
-      { time: "2:40 – 3:40 PM", title: "The Blacktie Protocol & The Grid", eventSlugs: ["blacktie-protocol", "the-grid"], eventRoundLabels: ["Round 1", "Round 2"], venue: "406 / 506 & 603", startsAt: "2026-08-18T14:40:00+05:30", endsAt: "2026-08-18T15:40:00+05:30" },
-      { time: "3:40 – 3:45 PM", title: "Break", isBreak: true, startsAt: "2026-08-18T15:40:00+05:30", endsAt: "2026-08-18T15:45:00+05:30" },
-      { time: "3:45 – 5:10 PM", title: "Blackout Build & CyberPitch", eventSlugs: ["blackout-build", "cyberpitch"], eventRoundLabels: ["Round 2", "Round 1"], venue: "B3 / 214", startsAt: "2026-08-18T15:45:00+05:30", endsAt: "2026-08-18T17:10:00+05:30" },
-    ],
+    window: "Postponed — see 19/20 Aug",
+    blocks: [],
   },
   {
     dayLabel: "Day 3",
     date: "19 Aug",
     weekday: "Wednesday",
-    window: "2:40 PM – 5:10 PM",
+    window: "11:00 AM – 5:10 PM",
     blocks: [
+      { time: "11:00 – 12:00 PM", title: "The Blacktie Protocol — Round 1", eventSlug: "blacktie-protocol", venue: "406", startsAt: "2026-08-19T11:00:00+05:30", endsAt: "2026-08-19T12:00:00+05:30" },
+      { time: "12:00 – 12:50 PM", title: "The Grid — Round 2", eventSlug: "the-grid", venue: "506 & 603", startsAt: "2026-08-19T12:00:00+05:30", endsAt: "2026-08-19T12:50:00+05:30" },
+      { time: "1:40 – 2:40 PM", title: "CyberPitch — Round 1", eventSlug: "cyberpitch", venue: "214", startsAt: "2026-08-19T13:40:00+05:30", endsAt: "2026-08-19T14:40:00+05:30" },
       { time: "2:40 – 3:40 PM", title: "Mind Games — Round 2", eventSlugs: ["cortex-vortex", "ghost-override"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom A / B", startsAt: "2026-08-19T14:40:00+05:30", endsAt: "2026-08-19T15:40:00+05:30" },
       { time: "3:40 – 4:00 PM", title: "Break", isBreak: true, startsAt: "2026-08-19T15:40:00+05:30", endsAt: "2026-08-19T16:00:00+05:30" },
       { time: "4:00 – 5:10 PM", title: "Manhunt — Round 1", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 1", "Round 1"], venue: "Classroom / Basketball Court", startsAt: "2026-08-19T16:00:00+05:30", endsAt: "2026-08-19T17:10:00+05:30" },
@@ -92,8 +98,9 @@ export const onGroundWeek: ScheduleDay[] = [
     dayLabel: "Day 4",
     date: "20 Aug",
     weekday: "Thursday",
-    window: "2:40 PM – 5:10 PM",
+    window: "12:00 PM – 5:10 PM",
     blocks: [
+      { time: "12:00 – 2:00 PM", title: "Blackout Build — Round 2", eventSlug: "blackout-build", venue: "B3", startsAt: "2026-08-20T12:00:00+05:30", endsAt: "2026-08-20T14:00:00+05:30" },
       { time: "2:40 – 5:10 PM", title: "Sleeper Cell", eventSlug: "sleeper-cell", venue: "Campus-wide", startsAt: "2026-08-20T14:40:00+05:30", endsAt: "2026-08-20T17:10:00+05:30" },
     ],
   },
