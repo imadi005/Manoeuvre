@@ -27,7 +27,7 @@ const gridDays: GridDay[] = [
     blocks: d.blocks,
     postponedMessage:
       d.blocks.length === 0
-        ? "// BLACK DAY DECLARED\nDepartment Heads allegedly achieved enlightenment. Events relocated to 19/20 Aug while reality stabilizes."
+        ? "// BLACK DAY DECLARED\nA higher power intervened. Events relocated to 19/20 Aug while reality stabilizes."
         : undefined,
   })),
   { date: "23 Aug", weekday: "Sunday", blocks: [], isOff: true },

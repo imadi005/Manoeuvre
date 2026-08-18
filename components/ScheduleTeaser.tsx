@@ -27,7 +27,7 @@ const tabs: Tab[] = [
     accent: "cyan" as const,
     postponedMessage:
       d.blocks.length === 0
-        ? "// BLACK DAY DECLARED\nDepartment Heads allegedly achieved enlightenment. Events relocated to 19/20 Aug while reality stabilizes."
+        ? "// BLACK DAY DECLARED\nA higher power intervened. Events relocated to 19/20 Aug while reality stabilizes."
         : undefined,
   })),
   { label: "Finale", sub: "24 Aug", blocks: finaleSchedule, accent: "yellow" as const },
