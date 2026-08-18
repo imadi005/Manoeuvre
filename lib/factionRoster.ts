@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { activeConflictSlugsByStudent } from "@/lib/eliminationStatus";
 
 export interface StudentInfo {
   id: string;
@@ -62,15 +63,14 @@ export async function getFactionRoster(factionId: string): Promise<FactionRoster
   const regs = (registrationRows ?? []) as unknown as RegRow[];
 
   const eventCountByStudent = new Map<string, number>();
-  // Substitute registrations (gaming) are excluded here — they're exempt
-  // from the schedule-conflict check, in both directions.
-  const eventSlugsByStudent = new Map<string, string[]>();
   for (const r of regs) {
     eventCountByStudent.set(r.student_id, (eventCountByStudent.get(r.student_id) ?? 0) + 1);
-    if (r.is_substitute) continue;
-    if (!eventSlugsByStudent.has(r.student_id)) eventSlugsByStudent.set(r.student_id, []);
-    eventSlugsByStudent.get(r.student_id)!.push(r.event_slug);
   }
+  // Substitute registrations and eliminated registrations are excluded here
+  // — both are exempt from the schedule-conflict check, in both directions.
+  const eventSlugsByStudent = await activeConflictSlugsByStudent(
+    regs.map((r) => ({ studentId: r.student_id, eventSlug: r.event_slug, teamId: r.team_id, isSubstitute: r.is_substitute }))
+  );
 
   const students: StudentInfo[] = (studentRows ?? []).map((s) => ({
     id: s.id,

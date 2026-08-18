@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { events } from "@/lib/data";
 import { findConflict } from "@/lib/scheduleConflicts";
 import { isRegistrationLocked } from "@/lib/eventLock";
+import { activeConflictSlugs } from "@/lib/eliminationStatus";
 
 type ActionResult = { error: string | null };
 type CreateTeamResult = { error: string | null; teamId?: string };
@@ -114,13 +115,14 @@ export async function addRegistration(studentId: string, eventSlug: string, team
 
   const { data: studentRegs } = await supabase
     .from("event_registrations")
-    .select("event_slug, is_substitute")
+    .select("event_slug, team_id, is_substitute")
     .eq("student_id", studentId);
   const allSlugs = (studentRegs ?? []).map((r) => r.event_slug);
-  // Substitute registrations don't count toward the conflict check — a
-  // gaming sub can still be added to other events, and being marked a
-  // substitute themselves skips the check entirely.
-  const nonSubSlugs = (studentRegs ?? []).filter((r) => !r.is_substitute).map((r) => r.event_slug);
+  // Substitute registrations, and any registration where the student's
+  // unit has already been eliminated, don't count toward the conflict
+  // check — once they're out of an event it no longer blocks them from
+  // joining something else that overlaps its schedule.
+  const nonSubSlugs = await activeConflictSlugs(studentId, studentRegs ?? []);
 
   if (allSlugs.includes(eventSlug)) return { error: "Already registered for this event." };
 
