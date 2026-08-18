@@ -5,7 +5,7 @@ const LOCK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** Per-event manual overrides for the default 24h-before-first-round cutoff — coordinator requests to keep a specific event's registration open later than usual. */
 const REGISTRATION_LOCK_OVERRIDES: Record<string, string> = {
-  cyberpitch: "2026-08-18T00:00:00+05:30",
+  cyberpitch: "2026-08-18T14:30:00+05:30",
 };
 
 /** When registration for this event closes — 24h before its first round, unless overridden above. Null if the event has no scheduled block yet. */
