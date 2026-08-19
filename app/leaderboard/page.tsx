@@ -11,10 +11,13 @@ export const revalidate = 30;
 
 export default async function LeaderboardPage() {
   const supabase = createAdminClient();
+  // Counts the moment the event lead submits a result -- faculty/control-room
+  // approval still runs, but no longer gates the leaderboard. Only an explicit
+  // rejection at either stage pulls a result back out.
   const { data: verified } = await supabase
     .from("event_results")
     .select("event_slug, sub_event, first_faction_id, second_faction_id, third_faction_id")
-    .eq("status", "published");
+    .in("status", ["submitted", "faculty_approved", "published"]);
 
   const { data: attendance } = await supabase.from("event_attendance").select("event_slug, faction_id, sub_event");
 
