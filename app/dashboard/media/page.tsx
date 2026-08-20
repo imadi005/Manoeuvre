@@ -14,12 +14,14 @@ export default async function MediaDashboard() {
 
   const supabase = createAdminClient();
 
-  const { data: publishedResults } = await supabase
+  // Open for media as soon as the event lead has submitted a result -- same
+  // gate as the leaderboard now uses, not the full faculty + control-room chain.
+  const { data: openResults } = await supabase
     .from("event_results")
     .select("event_slug")
-    .eq("status", "published");
+    .in("status", ["submitted", "faculty_approved", "published"]);
 
-  const closedSlugs = (publishedResults ?? []).map((r) => r.event_slug);
+  const closedSlugs = (openResults ?? []).map((r) => r.event_slug);
 
   const { data: photoRows } = closedSlugs.length
     ? await supabase
@@ -67,12 +69,12 @@ export default async function MediaDashboard() {
             Welcome, {session.name}
           </h1>
           <p className="mt-3 font-mono-fx text-sm uppercase tracking-widest text-fog-dim">
-            Upload geotagged &amp; normal photos for closed events
+            Upload geotagged &amp; normal photos for events with a result in
           </p>
 
           <div className="mt-10 flex flex-col gap-6">
             {closedEvents.length === 0 && (
-              <p className="font-body text-sm text-fog-dim">No events closed yet — nothing to upload.</p>
+              <p className="font-body text-sm text-fog-dim">No events open yet — nothing to upload.</p>
             )}
             {closedEvents.map((e) => (
               <PhotoUploadForm

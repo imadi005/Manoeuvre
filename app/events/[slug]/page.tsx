@@ -7,6 +7,8 @@ import { events, totalSlotsForEvent } from "@/lib/data";
 import { getEventScheduleBlocks } from "@/lib/schedule";
 import { getEventRoster } from "@/lib/eventRoster";
 import RoundProgressDisplay from "@/components/RoundProgressDisplay";
+import EventGallery from "@/components/EventGallery";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const glowText: Record<string, string> = {
   magenta: "text-magenta text-glow-magenta",
@@ -48,6 +50,20 @@ export default async function EventPage({
 
   const { teams, individuals, roundResults } = await getEventRoster(slug);
   const scheduleBlocks = getEventScheduleBlocks(slug);
+
+  // Public gallery: normal photos only -- geotagged originals stay internal,
+  // used only for documentation/verification, never shown here.
+  const supabase = createAdminClient();
+  const { data: photoRows } = await supabase
+    .from("event_photos")
+    .select("id, storage_path")
+    .eq("event_slug", slug)
+    .eq("photo_type", "normal")
+    .order("created_at", { ascending: false });
+  const galleryPhotos = (photoRows ?? []).map((p) => ({
+    id: p.id,
+    url: supabase.storage.from("event-photos").getPublicUrl(p.storage_path).data.publicUrl,
+  }));
 
   // Group into per-faction blocks for the public roster — empty teams (started, nobody added yet) are hidden.
   const nonEmptyTeams = teams.filter((t) => t.members.length > 0);
@@ -190,6 +206,10 @@ export default async function EventPage({
               individuals={individuals}
               roundResults={roundResults}
             />
+          </Reveal>
+
+          <Reveal delay={0.37}>
+            <EventGallery photos={galleryPhotos} borderClass={glowBorder[event.glow]} />
           </Reveal>
 
           {rosterByFaction.length === 0 && (
