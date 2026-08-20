@@ -60,9 +60,10 @@ export default async function EventPage({
     .eq("event_slug", slug)
     .eq("photo_type", "normal")
     .order("created_at", { ascending: false });
-  const galleryPhotos = (photoRows ?? []).map((p) => ({
+  const galleryPhotos = (photoRows ?? []).map((p, i) => ({
     id: p.id,
     url: supabase.storage.from("event-photos").getPublicUrl(p.storage_path).data.publicUrl,
+    name: `${event.slug}-${i + 1}.${p.storage_path.split(".").pop() || "jpg"}`,
   }));
 
   // Group into per-faction blocks for the public roster — empty teams (started, nobody added yet) are hidden.

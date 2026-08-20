@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createUploadTargets, confirmUploads, removePhoto, notifyDocumentationTeam } from "@/app/dashboard/media/actions";
 import { createBrowserClient } from "@/lib/supabase/browser";
 
@@ -14,11 +14,13 @@ interface Photo {
 type FileStatus = "queued" | "uploading" | "done" | "failed";
 interface QueueItem {
   file: File;
+  previewUrl: string;
   status: FileStatus;
 }
 
 const CONCURRENCY = 6;
 const MAX_RETRIES = 2;
+const CHUNK = 40;
 
 export default function PhotoUploadForm({
   eventSlug,
@@ -31,16 +33,20 @@ export default function PhotoUploadForm({
   photos: Photo[];
   documentationNotified: boolean;
 }) {
+  const geoCount = photos.filter((p) => p.photoType === "geotagged").length;
+  const normalCount = photos.filter((p) => p.photoType === "normal").length;
+
   return (
     <div className="border border-panel-line bg-panel/50 p-5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-display text-lg font-bold uppercase text-fog">{eventName}</h3>
-        <span className="font-mono-fx text-xs text-fog-dim">{photos.length} photo{photos.length === 1 ? "" : "s"}</span>
+        <span className="font-mono-fx text-xs text-fog-dim">
+          {normalCount} normal · {geoCount} geotagged
+        </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <UploadZone eventSlug={eventSlug} photoType="geotagged" label="Geotagged Photos" hint="Internal only — never shown on the public event page." />
-        <UploadZone eventSlug={eventSlug} photoType="normal" label="Normal Photos" hint="These show up in the public gallery on the event page." />
+      <div className="mt-4">
+        <Uploader eventSlug={eventSlug} />
       </div>
 
       {photos.length > 0 && (
@@ -62,17 +68,8 @@ export default function PhotoUploadForm({
   );
 }
 
-function UploadZone({
-  eventSlug,
-  photoType,
-  label,
-  hint,
-}: {
-  eventSlug: string;
-  photoType: "geotagged" | "normal";
-  label: string;
-  hint: string;
-}) {
+function Uploader({ eventSlug }: { eventSlug: string }) {
+  const [photoType, setPhotoType] = useState<"normal" | "geotagged">("normal");
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -82,29 +79,35 @@ function UploadZone({
   const done = queue.filter((q) => q.status === "done").length;
   const failed = queue.filter((q) => q.status === "failed").length;
   const total = queue.length;
+  const settled = done + failed;
 
   const setStatus = (index: number, status: FileStatus) =>
     setQueue((prev) => prev.map((q, i) => (i === index ? { ...q, status } : q)));
 
+  useEffect(() => {
+    // Revoke object URLs once the batch finishes, so we don't leak memory
+    // across repeated upload runs.
+    if (total > 0 && settled === total) {
+      const urls = queue.map((q) => q.previewUrl);
+      return () => urls.forEach((u) => URL.revokeObjectURL(u));
+    }
+  }, [total, settled, queue]);
+
   const runUpload = useCallback(
-    async (files: File[]) => {
+    async (files: File[], type: "normal" | "geotagged") => {
       setError(null);
       setBusy(true);
-      const items: QueueItem[] = files.map((file) => ({ file, status: "queued" as const }));
+      const items: QueueItem[] = files.map((file) => ({ file, previewUrl: URL.createObjectURL(file), status: "queued" as const }));
       setQueue(items);
 
       const browser = createBrowserClient();
       const successfulPaths: string[] = [];
 
-      // Chunk target-creation too, so a 400-file batch doesn't sit in one
-      // giant server round trip -- each chunk is just URL generation, no
-      // bytes, so it's fast, but chunking keeps progress visibly moving.
-      const CHUNK = 40;
       for (let chunkStart = 0; chunkStart < files.length; chunkStart += CHUNK) {
         const chunkFiles = files.slice(chunkStart, chunkStart + CHUNK);
         const { targets, error: targetError } = await createUploadTargets(
           eventSlug,
-          photoType,
+          type,
           chunkFiles.map((f) => ({ name: f.name, type: f.type, size: f.size }))
         );
         if (targetError && targets.length === 0) {
@@ -147,74 +150,149 @@ function UploadZone({
       }
 
       if (successfulPaths.length > 0) {
-        const { error: confirmError } = await confirmUploads(eventSlug, photoType, successfulPaths);
+        const { error: confirmError } = await confirmUploads(eventSlug, type, successfulPaths);
         if (confirmError) setError(confirmError);
       }
       setBusy(false);
     },
-    [eventSlug, photoType]
+    [eventSlug]
   );
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    const files = Array.from(fileList);
-    void runUpload(files);
+    void runUpload(Array.from(fileList), photoType);
+  };
+
+  const retryFailed = () => {
+    const failedFiles = queue.filter((q) => q.status === "failed").map((q) => q.file);
+    if (failedFiles.length > 0) void runUpload(failedFiles, photoType);
   };
 
   return (
-    <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        handleFiles(e.dataTransfer.files);
-      }}
-      className={`flex flex-col gap-2 border border-dashed p-3 transition-colors ${
-        dragOver ? "border-cyan bg-cyan/5" : "border-panel-line"
-      }`}
-    >
-      <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">{label}</span>
-      <p className="font-body text-[11px] text-fog-dim">{hint}</p>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">Uploading as:</span>
+        <div className="flex overflow-hidden border border-panel-line">
+          {(["normal", "geotagged"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              disabled={busy}
+              onClick={() => setPhotoType(t)}
+              className={`px-3 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest transition-colors disabled:opacity-40 ${
+                photoType === t ? "bg-cyan text-void" : "text-fog-dim hover:text-fog"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="font-body text-[11px] text-fog-dim">
+        {photoType === "normal"
+          ? "Goes in the public gallery on the event page."
+          : "Internal only — never shown on the public event page."}
+      </p>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        disabled={busy}
-        onChange={(e) => handleFiles(e.target.files)}
-        className="hidden"
-      />
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-        className="self-start border border-cyan/60 px-3 py-1.5 font-mono-fx text-[10px] uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void disabled:opacity-40"
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+        className={`flex flex-col items-center gap-2 border border-dashed p-6 text-center transition-colors ${
+          dragOver ? "border-cyan bg-cyan/5" : "border-panel-line"
+        }`}
       >
-        {busy ? "Uploading..." : "Choose Files or Drag Here"}
-      </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={busy}
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+        />
+        <p className="font-mono-fx text-[11px] uppercase tracking-widest text-fog-dim">
+          Drag photos here, or
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          className="border border-cyan/60 px-4 py-2 font-mono-fx text-[11px] uppercase tracking-widest text-cyan transition-colors hover:bg-cyan hover:text-void disabled:opacity-40"
+        >
+          {busy ? "Uploading..." : "Choose Files"}
+        </button>
+        <p className="font-mono-fx text-[9px] uppercase tracking-widest text-fog-dim">Any number at once — up to 15MB each</p>
+      </div>
 
       {total > 0 && (
-        <div className="mt-1 flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
           <div className="h-1.5 w-full overflow-hidden bg-void">
             <div
               className={`h-full transition-all ${failed > 0 ? "bg-magenta" : "bg-cyan"}`}
-              style={{ width: `${((done + failed) / total) * 100}%` }}
+              style={{ width: `${(settled / total) * 100}%` }}
             />
           </div>
-          <span className="font-mono-fx text-[9px] uppercase tracking-widest text-fog-dim">
-            {done} / {total} uploaded{failed > 0 ? ` · ${failed} failed` : ""}
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="font-mono-fx text-[10px] uppercase tracking-widest text-fog-dim">
+              {done} / {total} uploaded{failed > 0 ? ` · ${failed} failed` : ""}
+              {busy ? " · in progress" : settled === total ? " · done" : ""}
+            </span>
+            {!busy && failed > 0 && (
+              <button
+                type="button"
+                onClick={retryFailed}
+                className="font-mono-fx text-[10px] uppercase tracking-widest text-yellow hover:underline"
+              >
+                Retry {failed} failed
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
+            {queue.map((q, i) => (
+              <div key={i} className="group relative aspect-square overflow-hidden border border-panel-line">
+                <img src={q.previewUrl} alt="" className="h-full w-full object-cover" />
+                <StatusBadge status={q.status} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {error && (
         <p className="font-mono-fx text-[10px] uppercase tracking-wide text-magenta text-glow-magenta">⚠ {error}</p>
       )}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: FileStatus }) {
+  if (status === "queued") {
+    return <div className="absolute inset-0 flex items-center justify-center bg-void/60 font-mono-fx text-[8px] uppercase text-fog-dim">···</div>;
+  }
+  if (status === "uploading") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-void/50">
+        <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-cyan border-t-transparent" />
+      </div>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-magenta/30 font-mono-fx text-[10px] text-magenta">✕</div>
+    );
+  }
+  return (
+    <div className="absolute bottom-0.5 right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-cyan font-mono-fx text-[8px] text-void">
+      ✓
     </div>
   );
 }
