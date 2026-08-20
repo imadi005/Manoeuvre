@@ -51,7 +51,66 @@ function blockPosition(b: ScheduleBlock) {
   return { style: { top: `${top}%`, height: `${height}%` }, durationMin: end - start };
 }
 
-function BlockContent({ b }: { b: ScheduleBlock }) {
+/** Assigns each block a side-by-side lane when its time range overlaps
+ * another block's — otherwise two simultaneous events (e.g. Blacktie
+ * Protocol and The Trace running at once on the same day) would stack
+ * directly on top of each other and render as unreadable double-exposed
+ * text. Blocks that don't overlap anything stay full width. */
+function layoutDay(blocks: ScheduleBlock[]): { block: ScheduleBlock; col: number; cols: number }[] {
+  const times = blocks.map((b) =>
+    b.startsAt && b.endsAt ? { start: minutesOfDay(b.startsAt), end: minutesOfDay(b.endsAt) } : null
+  );
+  const n = blocks.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  const union = (a: number, b: number) => {
+    parent[find(a)] = find(b);
+  };
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const a = times[i];
+      const c = times[j];
+      if (!a || !c) continue;
+      if (a.start < c.end && c.start < a.end) union(i, j);
+    }
+  }
+
+  const groups = new Map<number, number[]>();
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root)!.push(i);
+  }
+
+  const col = new Array(n).fill(0);
+  const cols = new Array(n).fill(1);
+  for (const idxs of groups.values()) {
+    if (idxs.length === 1) continue;
+    const sorted = [...idxs].sort((a, b) => (times[a]?.start ?? 0) - (times[b]?.start ?? 0));
+    const colEnds: number[] = [];
+    for (const idx of sorted) {
+      const t = times[idx]!;
+      let placed = false;
+      for (let c = 0; c < colEnds.length; c++) {
+        if (colEnds[c] <= t.start) {
+          col[idx] = c;
+          colEnds[c] = t.end;
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        col[idx] = colEnds.length;
+        colEnds.push(t.end);
+      }
+    }
+    for (const idx of idxs) cols[idx] = colEnds.length;
+  }
+
+  return blocks.map((block, i) => ({ block, col: col[i], cols: cols[i] }));
+}
+
+function BlockContent({ b, col, cols }: { b: ScheduleBlock; col: number; cols: number }) {
   const pos = blockPosition(b);
   const isStage = b.venue === "Stage";
   const isShort = (pos?.durationMin ?? 999) < 30;
@@ -65,14 +124,22 @@ function BlockContent({ b }: { b: ScheduleBlock }) {
   // break was shorter than ~12 real minutes (e.g. the 18th's 5-min break).
   // Scale the floor down for very short breaks instead of a fixed minimum.
   const minHeightPx = b.isBreak ? Math.min(16, Math.max(4, (pos?.durationMin ?? 5) * 1.3)) : isShort ? 16 : 26;
-  const style = { ...(pos?.style ?? {}), minHeight: `${minHeightPx}px` };
+  // Side-by-side lane when this block's time overlaps another block's —
+  // full width otherwise, same as before this existed.
+  const laneWidth = 100 / cols;
+  const style = {
+    ...(pos?.style ?? {}),
+    minHeight: `${minHeightPx}px`,
+    left: `calc(${col * laneWidth}% + 2px)`,
+    width: `calc(${laneWidth}% - 4px)`,
+  };
   const veryShortBreak = b.isBreak && (pos?.durationMin ?? 999) < 10;
 
   if (b.eventSlugs) {
     const [slugA, slugB] = b.eventSlugs;
     const [roundA, roundB] = b.eventRoundLabels ?? ["", ""];
     return (
-      <div className={`absolute inset-x-0.5 z-10 flex divide-x divide-current/20 border ${colorClass}`} style={style}>
+      <div className={`absolute z-10 flex divide-x divide-current/20 border ${colorClass}`} style={style}>
         {[
           [slugA, roundA],
           [slugB, roundB],
@@ -110,7 +177,7 @@ function BlockContent({ b }: { b: ScheduleBlock }) {
     </>
   );
 
-  const className = `absolute inset-x-0.5 z-10 border px-1.5 py-0.5 text-left transition-transform ${colorClass} ${
+  const className = `absolute z-10 border px-1.5 py-0.5 text-left transition-transform ${colorClass} ${
     b.eventSlug ? "hover:z-20 hover:scale-[1.03] hover:border-magenta hover:bg-panel" : ""
   }`;
 
@@ -179,7 +246,9 @@ function DesktopGrid() {
                   ))}
                 </div>
               ) : (
-                day.blocks.map((b, i) => <BlockContent key={i} b={b} />)
+                layoutDay(day.blocks).map(({ block, col, cols }, i) => (
+                  <BlockContent key={i} b={block} col={col} cols={cols} />
+                ))
               )}
             </div>
           </div>
