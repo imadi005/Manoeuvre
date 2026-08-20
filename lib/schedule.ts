@@ -110,20 +110,22 @@ export const onGroundWeek: ScheduleDay[] = [
     weekday: "Friday",
     window: "2:40 PM – 5:10 PM",
     blocks: [
-      // One long paired activity, no filler breaks — a proper staggered-heat
-      // narrowing round genuinely fills an afternoon on its own.
-      { time: "2:40 – 5:10 PM", title: "Manhunt — Round 2", eventSlugs: ["room-zero", "the-trace"], eventRoundLabels: ["Round 2", "Round 2"], venue: "Classroom / Basketball Court", startsAt: "2026-08-21T14:40:00+05:30", endsAt: "2026-08-21T17:10:00+05:30" },
+      // The Trace no longer runs Friday -- its Round 2 and Round 3 were
+      // merged into one combined session on Saturday instead.
+      { time: "2:40 – 5:10 PM", title: "Room Zero — Round 2", eventSlug: "room-zero", venue: "Classroom", startsAt: "2026-08-21T14:40:00+05:30", endsAt: "2026-08-21T17:10:00+05:30" },
     ],
   },
   {
     dayLabel: "Day 6",
     date: "22 Aug",
     weekday: "Saturday",
-    window: "10:00 AM – 4:30 PM",
+    window: "10:00 AM – 5:15 PM",
     blocks: [
       { time: "10:00 – 12:50 PM", title: "Room Zero Grand Finale & CyberPitch", eventSlugs: ["room-zero", "cyberpitch"], eventRoundLabels: ["Grand Finale", "Round 2"], venue: "Classroom / Classroom B", startsAt: "2026-08-22T10:00:00+05:30", endsAt: "2026-08-22T12:50:00+05:30" },
       { time: "12:50 – 1:30 PM", title: "Lunch Break", isBreak: true, startsAt: "2026-08-22T12:50:00+05:30", endsAt: "2026-08-22T13:30:00+05:30" },
-      { time: "1:30 – 4:30 PM", title: "The Blacktie Protocol & The Trace", eventSlugs: ["blacktie-protocol", "the-trace"], eventRoundLabels: ["Round 2", "Round 3"], venue: "Classroom A / Basketball Court", startsAt: "2026-08-22T13:30:00+05:30", endsAt: "2026-08-22T16:30:00+05:30" },
+      { time: "1:50 – 4:50 PM", title: "The Blacktie Protocol — Round 2", eventSlug: "blacktie-protocol", venue: "Classroom A", startsAt: "2026-08-22T13:50:00+05:30", endsAt: "2026-08-22T16:50:00+05:30" },
+      // Round 2 and Round 3 merged into one continuous session.
+      { time: "2:00 – 5:15 PM", title: "The Trace — Round 2 & 3", eventSlug: "the-trace", venue: "Basketball Court", startsAt: "2026-08-22T14:00:00+05:30", endsAt: "2026-08-22T17:15:00+05:30" },
     ],
   },
 ];
