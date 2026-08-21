@@ -119,14 +119,13 @@ export const onGroundWeek: ScheduleDay[] = [
     dayLabel: "Day 6",
     date: "22 Aug",
     weekday: "Saturday",
-    window: "9:30 AM – 4:45 PM",
+    window: "9:30 AM – 4:30 PM",
     blocks: [
-      // Whole day pushed 30 min earlier across the board.
-      { time: "9:30 – 12:20 PM", title: "Room Zero Grand Finale & CyberPitch", eventSlugs: ["room-zero", "cyberpitch"], eventRoundLabels: ["Grand Finale", "Round 2"], venue: "Classroom / Classroom B", startsAt: "2026-08-22T09:30:00+05:30", endsAt: "2026-08-22T12:20:00+05:30" },
-      { time: "12:20 – 1:00 PM", title: "Lunch Break", isBreak: true, startsAt: "2026-08-22T12:20:00+05:30", endsAt: "2026-08-22T13:00:00+05:30" },
-      { time: "1:20 – 4:20 PM", title: "The Blacktie Protocol — Round 2", eventSlug: "blacktie-protocol", venue: "Classroom A", startsAt: "2026-08-22T13:20:00+05:30", endsAt: "2026-08-22T16:20:00+05:30" },
+      { time: "9:30 – 12:50 PM", title: "Room Zero Grand Finale & CyberPitch", eventSlugs: ["room-zero", "cyberpitch"], eventRoundLabels: ["Grand Finale", "Round 2"], venue: "Classroom / Classroom B", startsAt: "2026-08-22T09:30:00+05:30", endsAt: "2026-08-22T12:50:00+05:30" },
+      { time: "12:50 – 1:40 PM", title: "Lunch Break", isBreak: true, startsAt: "2026-08-22T12:50:00+05:30", endsAt: "2026-08-22T13:40:00+05:30" },
+      { time: "1:40 – 4:30 PM", title: "The Blacktie Protocol — Round 2", eventSlug: "blacktie-protocol", venue: "Classroom A", startsAt: "2026-08-22T13:40:00+05:30", endsAt: "2026-08-22T16:30:00+05:30" },
       // Round 2 and Round 3 merged into one continuous session.
-      { time: "1:30 – 4:45 PM", title: "The Trace — Round 2 & 3", eventSlug: "the-trace", venue: "Basketball Court", startsAt: "2026-08-22T13:30:00+05:30", endsAt: "2026-08-22T16:45:00+05:30" },
+      { time: "1:40 – 4:30 PM", title: "The Trace — Round 2 & 3", eventSlug: "the-trace", venue: "Basketball Court", startsAt: "2026-08-22T13:40:00+05:30", endsAt: "2026-08-22T16:30:00+05:30" },
     ],
   },
 ];
