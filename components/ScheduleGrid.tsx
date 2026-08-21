@@ -6,10 +6,10 @@ function eventName(slug: string): string {
   return events.find((e) => e.slug === slug)?.name ?? slug;
 }
 
-const AXIS_START_MIN = 10 * 60; // 10:00 AM — earliest any day starts
+const AXIS_START_MIN = 9 * 60 + 30; // 9:30 AM — earliest any day starts (22 Aug's pushed-up start)
 const AXIS_END_MIN = 18 * 60; // 6:00 PM — Finale's Closing Ceremony runs to 5:30 PM
 const AXIS_SPAN = AXIS_END_MIN - AXIS_START_MIN;
-const HOURS = Array.from({ length: 9 }, (_, i) => 10 + i); // 10..18
+const HOURS = Array.from({ length: 9 }, (_, i) => 10 + i); // 10..18 — hour gridlines start at the first full hour on the axis
 
 interface GridDay {
   date: string;
