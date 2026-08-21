@@ -23,8 +23,12 @@ async function requireMediaSession() {
 
 async function assertEventOpen(eventSlug: string) {
   const supabase = createAdminClient();
-  const { data: result } = await supabase.from("event_results").select("status").eq("event_slug", eventSlug).maybeSingle();
-  return !!result && OPEN_STATUSES.includes(result.status);
+  // .maybeSingle() would break here -- events with sub-events (The Grid's
+  // BGMI/PES) have more than one event_results row for the same slug, and
+  // maybeSingle() errors out (data: null) the moment a query matches more
+  // than one row. Any one of them being open is enough.
+  const { data: results } = await supabase.from("event_results").select("status").eq("event_slug", eventSlug).in("status", OPEN_STATUSES);
+  return !!results && results.length > 0;
 }
 
 export interface UploadTarget {
