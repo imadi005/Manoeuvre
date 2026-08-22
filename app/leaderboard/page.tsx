@@ -6,10 +6,36 @@ import Reveal from "@/components/Reveal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { factions, events } from "@/lib/data";
 import { computeFactionTotals, computeParticipationTotals, mergeFactionTotals, pointsForPlacement } from "@/lib/scoring";
+import { getSession } from "@/lib/auth/session";
+import { canSeeFinalResults } from "@/lib/auth/resultsVisibility";
 
 export const revalidate = 30;
 
 export default async function LeaderboardPage() {
+  const session = await getSession();
+  if (!canSeeFinalResults(session)) {
+    return (
+      <>
+        <Navbar />
+        <main className="scanlines relative flex min-h-screen items-center justify-center bg-void px-5 pb-24 pt-32">
+          <div className="grid-bg pointer-events-none absolute inset-0" />
+          <Reveal className="relative text-center">
+            <p className="font-mono-fx text-xs uppercase tracking-[0.4em] text-yellow text-glow-yellow">
+              // Live Standings
+            </p>
+            <h1 className="font-display mt-4 text-4xl font-black uppercase text-fog sm:text-5xl">
+              TBA on 24th
+            </h1>
+            <p className="mx-auto mt-4 max-w-md font-body text-sm text-fog-dim">
+              The leaderboard is being held back for now. Check back on 24 Aug.
+            </p>
+          </Reveal>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   const supabase = createAdminClient();
   // Counts the moment the event lead submits a result -- faculty/control-room
   // approval still runs, but no longer gates the leaderboard. Only an explicit

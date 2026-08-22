@@ -16,16 +16,20 @@ const STATUS_COLOR: Record<RoundStatus, string> = {
   third: "text-yellow",
 };
 
+const FINAL_STATUSES = new Set<RoundStatus>(["winner", "runner_up", "third"]);
+
 export default function RoundProgressDisplay({
   totalRounds,
   teams,
   individuals,
   roundResults,
+  canSeeFinal,
 }: {
   totalRounds: number;
   teams: RosterTeam[];
   individuals: RosterIndividual[];
   roundResults: RoundResultsByRound;
+  canSeeFinal: boolean;
 }) {
   const hasAnyResults = Object.keys(roundResults).length > 0;
   if (!hasAnyResults) return null;
@@ -60,12 +64,21 @@ export default function RoundProgressDisplay({
             .map((u) => ({ ...u, status: statuses[u.id] as RoundStatus | undefined }))
             .filter((u) => u.status);
           if (entries.length === 0) return null;
+
+          const isFinalRound = entries.some((e) => FINAL_STATUSES.has(e.status!));
+          const held = isFinalRound && !canSeeFinal;
+
           return (
             <div key={r}>
               <p className="font-mono-fx text-[11px] uppercase tracking-widest text-cyan">
                 Round {r}
                 {r === totalRounds ? " — Final" : ""}
               </p>
+              {held ? (
+                <p className="mt-2 font-mono-fx text-xs uppercase tracking-widest text-yellow text-glow-yellow">
+                  TBA
+                </p>
+              ) : (
               <div className="mt-2 flex flex-col gap-1.5">
                 {entries.map((e) => (
                   <div key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 border-b border-panel-line/40 py-1.5 last:border-b-0">
@@ -81,6 +94,7 @@ export default function RoundProgressDisplay({
                   </div>
                 ))}
               </div>
+              )}
             </div>
           );
         })}

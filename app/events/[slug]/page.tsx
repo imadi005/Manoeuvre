@@ -9,6 +9,8 @@ import { getEventRoster } from "@/lib/eventRoster";
 import RoundProgressDisplay from "@/components/RoundProgressDisplay";
 import EventGallery from "@/components/EventGallery";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSession } from "@/lib/auth/session";
+import { canSeeFinalResults } from "@/lib/auth/resultsVisibility";
 
 const glowText: Record<string, string> = {
   magenta: "text-magenta text-glow-magenta",
@@ -50,6 +52,8 @@ export default async function EventPage({
 
   const { teams, individuals, roundResults } = await getEventRoster(slug);
   const scheduleBlocks = getEventScheduleBlocks(slug);
+  const session = await getSession();
+  const canSeeFinal = canSeeFinalResults(session);
 
   // Public gallery: normal photos only -- geotagged originals stay internal,
   // used only for documentation/verification, never shown here.
@@ -206,6 +210,7 @@ export default async function EventPage({
               teams={teams}
               individuals={individuals}
               roundResults={roundResults}
+              canSeeFinal={canSeeFinal}
             />
           </Reveal>
 
